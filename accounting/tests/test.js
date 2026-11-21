@@ -1064,8 +1064,15 @@ test('service worker가 상대 경로로 자기 캐시만 다룬다', () => {
   includes(SW, './app.js');
   includes(SW, './styles.css');
   includes(SW, 'oraholic-accounting-');
-  notIncludes(SW, "'oraholic-guesthouse-v1.1.1'", '예약 앱 캐시를 지우지 않습니다');
+  notIncludes(SW, 'oraholic-guesthouse-', '예약 앱 캐시를 지우지 않습니다');
   includes(SW, 'self.registration');
+});
+
+test('상단바에 예약 관리로 돌아가는 전환 버튼이 있다', () => {
+  includes(INDEX, 'class="app-switch"');
+  includes(INDEX, 'href="../"');
+  includes(INDEX, '📅');
+  includes(INDEX, '예약 관리 열기');
 });
 
 test('index.html은 상대 경로·잠금 화면·초록 테마를 쓴다', () => {

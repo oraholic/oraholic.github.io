@@ -799,6 +799,19 @@ test('서비스 워커가 상대 경로 자산을 캐시한다', () => {
   assert(!/'\/(index\.html|app\.js|styles\.css)'/.test(SW), '루트 절대 경로 캐시가 있습니다');
 });
 
+test('서비스 워커가 자기 앱 캐시만 지운다 (회계 앱 캐시 보존)', () => {
+  includes(SW, "const PREFIX = 'oraholic-guesthouse-';");
+  includes(SW, 'k.indexOf(PREFIX) === 0');
+  assert(!/keys\.filter\(\(k\) => k !== CACHE\)/.test(SW), '모든 캐시를 지우는 코드가 남아 있습니다');
+});
+
+test('상단바에 회계 정산으로 가는 전환 버튼이 있다', () => {
+  includes(INDEX, 'class="app-switch"');
+  includes(INDEX, 'href="./accounting/"');
+  includes(INDEX, '💰');
+  includes(INDEX, '회계 정산 열기');
+});
+
 test('앱 아이콘 파일이 실제로 있다', () => {
   ['icon-192.png', 'icon-512.png', 'icon.svg', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png'].forEach((f) => {
     const p = path.join(ROOT, f);

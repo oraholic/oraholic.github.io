@@ -1,6 +1,7 @@
 /* 오라홀릭 게스트하우스 — service worker (오프라인 캐시)
    GitHub Pages 하위 경로에서도 동작하도록 상대 경로만 사용합니다. */
-const CACHE = 'oraholic-guesthouse-v1.1.1';
+const CACHE = 'oraholic-guesthouse-v1.1.2';
+const PREFIX = 'oraholic-guesthouse-';
 const ASSETS = [
   './',
   './index.html',
@@ -28,7 +29,10 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(
+        // 자기 앱의 옛 캐시만 지웁니다 (회계 앱 'oraholic-accounting-' 캐시는 그대로 둔다)
+        keys.filter((k) => k.indexOf(PREFIX) === 0 && k !== CACHE).map((k) => caches.delete(k))
+      ))
       .then(() => self.clients.claim())
   );
 });

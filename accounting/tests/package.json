@@ -1,0 +1,12 @@
+{
+  "name": "oraholic-accounting-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "오라홀릭 회계 정산 앱 자동 테스트 (jsdom)",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "jsdom": "^22.1.0"
+  }
+}

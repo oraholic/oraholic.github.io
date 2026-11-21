@@ -1,0 +1,22 @@
+{
+  "name": "오라홀릭 회계 정산",
+  "short_name": "오라홀릭 회계",
+  "description": "세부 오라홀릭 게스트하우스의 필리핀 현지·한국 지출과 수입을 월별로 정산하는 회계 앱",
+  "lang": "ko",
+  "dir": "ltr",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#f5f9f6",
+  "theme_color": "#1b6b4a",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

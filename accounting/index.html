@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>오라홀릭 회계 정산</title>
+<meta name="description" content="세부 오라홀릭 게스트하우스의 필리핀 현지·한국 지출과 수입을 월별로 정산하는 회계 앱">
+<meta name="theme-color" content="#1b6b4a">
+<meta name="color-scheme" content="light">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="icon" href="./favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="오라홀릭 회계">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<!-- 접속 비밀번호 잠금 화면 · 비밀번호를 맞히기 전에는 앱 화면과 재무 데이터를 그리지 않습니다 -->
+<div id="lockScreen" class="lock-screen" role="dialog" aria-modal="true" aria-labelledby="lockTitle" aria-describedby="lockSub">
+  <div class="lock-card" id="lockCard">
+    <div class="lock-mark"><img src="./icon.svg" alt="" width="64" height="64"></div>
+    <h1 id="lockTitle">오라홀릭 회계 정산</h1>
+    <p class="lock-sub" id="lockSub">관리자 로그인</p>
+    <p class="lock-lead">장부는 <b>비밀번호를 아는 사람만</b> 열 수 있습니다. 예약 앱과 다른 <b>회계 전용 비밀번호</b>입니다.</p>
+
+    <form id="lockForm" class="lock-form" novalidate autocomplete="off">
+      <div class="field lock-field">
+        <label for="lockPin">접속 비밀번호</label>
+        <input type="password" id="lockPin" class="lock-pin" inputmode="numeric" maxlength="12"
+               autocomplete="current-password" spellcheck="false" placeholder="비밀번호">
+      </div>
+      <label class="lock-keep" for="lockKeep">
+        <input type="checkbox" id="lockKeep" checked>
+        <span>이 기기에서 로그인 유지</span>
+      </label>
+      <div id="lockError" class="lock-error" role="alert" aria-live="polite"></div>
+      <button type="submit" class="btn primary block lock-submit" id="lockSubmit">🔓 잠금 해제</button>
+    </form>
+
+    <p class="lock-hint" id="lockDefaultHint">처음 여는 기기라면 기본 비밀번호 <b>0000</b>으로 들어간 뒤, <b>⚙️ 설정 → 접속 비밀번호</b>에서 꼭 바꿔 주세요.</p>
+    <p class="lock-foot">사장님 · 엘레나 · 회계 전용</p>
+  </div>
+</div>
+
+<div class="app hidden" id="app-shell" hidden>
+
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-mark" src="./icon.svg" alt="" width="40" height="40">
+      <div class="brand-text">
+        <h1>오라홀릭 <span class="bh-dim">회계 정산</span></h1>
+        <p>세부 · 지출/수입 장부</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button type="button" id="rateBtn" class="rate-chip" data-action="goto-settings" title="환율 설정 열기" aria-label="환율 설정">
+        <span id="rateChipText">₱1 = ₩24.5</span>
+      </button>
+      <button type="button" id="syncBadge" class="sync-badge off" data-action="goto-settings" title="동기화 설정 열기" aria-label="동기화 상태">
+        <i class="dot" aria-hidden="true"></i><span id="syncBadgeText">로컬 저장</span>
+      </button>
+      <button type="button" id="lockBtn" class="lock-btn" data-action="lock" title="잠금" aria-label="잠금">🔒</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs" aria-label="주요 화면">
+    <button type="button" data-action="view" data-view="dashboard" class="active">📊 정산</button>
+    <button type="button" data-action="view" data-view="ledger">📒 장부</button>
+    <button type="button" data-action="view" data-view="report">📈 분석</button>
+    <button type="button" data-action="view" data-view="settings">⚙️ 설정</button>
+  </nav>
+
+  <main class="main">
+    <section id="viewDashboard" class="view"></section>
+    <section id="viewLedger" class="view hidden"></section>
+    <section id="viewReport" class="view hidden"></section>
+    <section id="viewSettings" class="view hidden"></section>
+  </main>
+
+  <button type="button" id="fabAdd" class="fab" data-action="new-entry" aria-label="내역 추가">＋ <span>내역 추가</span></button>
+</div>
+
+<div id="sheetRoot"></div>
+<div id="toastRoot" class="toast-root" aria-live="polite"></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<script src="./app.js"></script>
+</body>
+</html>

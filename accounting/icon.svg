@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="오라홀릭 회계 정산">
+  <defs>
+    <linearGradient id="bg" x1="0.08" y1="0" x2="0.42" y2="1">
+      <stop offset="0" stop-color="#2f8460"/>
+      <stop offset="0.55" stop-color="#1b6b4a"/>
+      <stop offset="1" stop-color="#124a35"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.84" cy="0.1" r="0.6">
+      <stop offset="0" stop-color="#9ad9ba" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#9ad9ba" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0.2" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f1f8f3"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="116" fill="url(#glow)"/>
+
+  <!-- 장부(종이) -->
+  <rect x="110" y="94" width="292" height="324" rx="40" fill="url(#paper)"/>
+  <rect x="150" y="138" width="120" height="24" rx="12" fill="#2e7d5b"/>
+  <rect x="150" y="200" width="212" height="18" rx="9" fill="#d7ebe0"/>
+  <rect x="150" y="246" width="212" height="18" rx="9" fill="#d7ebe0"/>
+  <rect x="150" y="292" width="150" height="18" rx="9" fill="#d7ebe0"/>
+  <rect x="150" y="338" width="104" height="18" rx="9" fill="#cfe3d7"/>
+
+  <!-- 동전 -->
+  <circle cx="376" cy="374" r="58" fill="#e2c56f"/>
+  <circle cx="376" cy="374" r="58" fill="none" stroke="#f4e4b8" stroke-width="6"/>
+  <path d="M348 360 H404 M348 388 H404" stroke="#124a35" stroke-width="11" stroke-linecap="round"/>
+</svg>

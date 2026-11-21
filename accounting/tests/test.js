@@ -1120,6 +1120,23 @@ test('대시보드에 월 선택·KPI·보유 잔액이 보인다', () => {
   L.dom.window.close();
 });
 
+test('전월 대비 색 구분 — 늘어난 수입은 초록, 늘어난 지출은 빨강', () => {
+  const L = makeDom(null, {});
+  const A = L.w.__AC;
+  A.resetData({ silent: true });
+  const prev = A.addMonths(THIS_MONTH, -1);
+  A.addEntry({ type: 'income', date: prev + '-02', region: 'PH', currency: 'PHP', amount: 10000, category: '숙박 수입 - 개별' });
+  A.addEntry({ type: 'expense', date: prev + '-03', region: 'PH', currency: 'PHP', amount: 1000, category: '월세' });
+  A.addEntry({ type: 'income', date: THIS_MONTH + '-02', region: 'PH', currency: 'PHP', amount: 20000, category: '숙박 수입 - 개별' });
+  A.addEntry({ type: 'expense', date: THIS_MONTH + '-03', region: 'PH', currency: 'PHP', amount: 3000, category: '월세' });
+  A.showView('dashboard');
+  const items = L.$$('#viewDashboard .mom-item');
+  eq(items.length, 3);
+  assert(items[0].querySelector('.md').classList.contains('good'), '수입 증가는 초록');
+  assert(items[1].querySelector('.md').classList.contains('bad'), '지출 증가는 빨강');
+  L.dom.window.close();
+});
+
 test('분석 화면에 연간 추이와 정산표가 보인다', () => {
   const L = makeDom(null, {});
   const A = L.w.__AC;

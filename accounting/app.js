@@ -521,23 +521,23 @@
 
   function momHTML(sum, prev, ym) {
     const diff = (a, b) => num(a) - num(b);
-    const mk = (label, cur, base) => {
+    const mk = (label, cur, base, goodWhenUp) => {
       const d = diff(cur, base);
       const rate = base ? (d / base) * 100 : 0;
-      const cls = d > 0 ? 'up' : d < 0 ? 'down' : 'flat';
+      const good = d === 0 ? 'flat' : (d > 0) === !!goodWhenUp ? 'good' : 'bad';
       const arrow = d > 0 ? '▲' : d < 0 ? '▼' : '–';
       return '<div class="mom-item"><div class="mk">' + label + '</div>' +
         '<div class="mv num">' + signMoney(d) + '</div>' +
-        '<div class="md ' + cls + '">' + arrow + ' ' + (base ? Math.abs(rate).toFixed(rate >= 10 || rate === 0 ? 0 : 1) + '%' : '비교 없음') + '</div></div>';
+        '<div class="md ' + good + '">' + arrow + ' ' + (base ? Math.abs(rate).toFixed(rate >= 10 || rate === 0 ? 0 : 1) + '%' : '비교 없음') + '</div></div>';
     };
     return '<div class="card">' +
       '<div class="card-head"><div><h2>전월 대비</h2><p>' + monthLabel(addMonths(ym, -1)) + ' → ' + monthLabel(ym) + '</p></div></div>' +
       '<div class="mom">' +
-        mk('수입', sum.income.krwTotal, prev.income.krwTotal) +
-        mk('지출', sum.expense.krwTotal, prev.expense.krwTotal) +
-        mk('순수익', sum.net, prev.net) +
+        mk('수입', sum.income.krwTotal, prev.income.krwTotal, true) +
+        mk('지출', sum.expense.krwTotal, prev.expense.krwTotal, false) +
+        mk('순수익', sum.net, prev.net, true) +
       '</div>' +
-      '<div class="tiny muted" style="margin-top:9px">지출이 늘면 빨강(▲), 줄면 초록(▼)입니다. 금액은 모두 ₩ 환산 기준입니다.</div>' +
+      '<div class="tiny muted" style="margin-top:9px">늘어난 수입·순수익과 줄어든 지출은 초록, 반대는 빨강입니다. 금액은 모두 ₩ 환산 기준입니다.</div>' +
       '</div>';
   }
 

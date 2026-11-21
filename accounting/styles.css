@@ -358,8 +358,8 @@ h1, h2, h3, h4, p { margin: 0; }
 .mom-item .mk { font-size: 11px; color: var(--muted); font-weight: 700; }
 .mom-item .mv { font-size: 14px; font-weight: 800; margin-top: 2px; letter-spacing: -.01em; }
 .mom-item .md { font-size: 11px; margin-top: 1px; font-weight: 700; }
-.up { color: var(--bad); }
-.down { color: var(--green); }
+.up, .bad { color: var(--bad); }
+.down, .good { color: var(--green); }
 .flat { color: var(--muted); }
 
 /* ---------- 내역 리스트 ---------- */

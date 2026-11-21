@@ -29,10 +29,15 @@
   --blue:#2C63B3;
   --blue-l:#E7EEF9;
 
-  --house-a:#B57A12;
-  --house-b:#0E6E6A;
-  --house-c:#2E5F9E;
-  --house-d:#A63E62;
+  /* 하우스 색 — A 앰버 · B 에메랄드 · C 스카이 · D 바이올렛 */
+  --house-a:#BE5A00;
+  --house-b:#0A7D53;
+  --house-c:#1D6FD0;
+  --house-d:#7B3FD4;
+  --house-a-d:#7A3B00;
+  --house-b-d:#04643F;
+  --house-c-d:#14508F;
+  --house-d-d:#4B2A8E;
 
   --r-s:10px;
   --r-m:14px;
@@ -194,10 +199,10 @@ a{color:var(--teal)}
 .badge.dep-pending{background:var(--warn-l);color:var(--warn);border-color:#F3D8BD}
 .badge.dep-received{background:var(--blue-l);color:var(--blue);border-color:#CDDCF4}
 .badge.dep-refunded{background:var(--ok-l);color:var(--ok);border-color:#C4E5D3}
-.badge.house-a{background:#FBF1DC;color:#8E5F0B;border-color:#EFDCB8}
-.badge.house-b{background:var(--teal-l);color:var(--teal-d);border-color:#C7E3DF}
-.badge.house-c{background:var(--blue-l);color:#28568C;border-color:#CFDDF3}
-.badge.house-d{background:#FAE9EF;color:#8E3153;border-color:#F0CBDA}
+.badge.house-a{background:#FCEFD7;color:#7A3B00;border-color:#F0D6AB}
+.badge.house-b{background:#DDF4E9;color:#04643F;border-color:#B7E4CE}
+.badge.house-c{background:#E4F0FD;color:#14508F;border-color:#C3DAF7}
+.badge.house-d{background:#EFE8FD;color:#4B2A8E;border-color:#D6C7F8}
 
 .empty{
   text-align:center;padding:26px 14px;color:var(--ink-3);
@@ -221,13 +226,41 @@ a{color:var(--teal)}
 .filter-row .label{font-size:11.5px;font-weight:800;color:var(--ink-3);margin-right:2px}
 .filter-row .chip.active-filter{background:#26231E;border-color:#26231E;color:#fff}
 
-.legend{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:11px;color:var(--ink-3);margin-bottom:10px}
-.legend .lg{display:inline-flex;align-items:center;gap:5px}
-.legend .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
-.legend .sw.direct{background:var(--teal)}
-.legend .sw.airbnb{background:var(--coral)}
-.legend .sw.other{background:#8C8779}
-.legend .sw.stay{background:#DCD6C9}
+.legend{
+  display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;
+  font-size:11px;color:var(--ink-3);margin-bottom:9px;
+  --hc:var(--house-a);--hc-d:var(--house-a-d);--hc-l:#FBE2B7;--hc-e:#EDCB92;
+}
+.legend + .legend{margin-top:-3px;margin-bottom:11px}
+.legend .lg{display:inline-flex;align-items:center;gap:5px;font-weight:700;color:var(--ink-2)}
+.legend .sw{width:11px;height:11px;border-radius:3px;display:inline-block;flex:0 0 auto}
+.legend .cap{font-size:10.5px;font-weight:900;color:var(--ink-3);letter-spacing:-.2px}
+.legend .lg-house{
+  background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px 2px 3px;box-shadow:var(--shadow);font-size:10.5px;color:var(--ink-2);
+}
+.legend .lg-house .hsw{
+  width:17px;height:17px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:900;color:#fff;background:var(--hc);letter-spacing:0;
+}
+.legend .sw.st-in{background:var(--hc)}
+.legend .sw.st-stay{background:var(--hc-l);box-shadow:inset 3px 0 0 var(--hc),inset 0 0 0 1px var(--hc-e)}
+.legend .sw.st-out{background:repeating-linear-gradient(135deg,var(--hc-e) 0 2.5px,#fff 2.5px 5px);box-shadow:inset 0 0 0 1.5px var(--hc)}
+.legend .sw.src-dot{width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px #23211D}
+
+/* 하우스 색 변수 — 캘린더 막대·날짜 상세·범례·예약 폼에서 함께 씁니다 */
+.hbar[data-house="A"],.house-block[data-house-block="A"],.lg-house[data-house="A"],.house-opt[data-pick-house="A"]{
+  --hc:var(--house-a);--hc-d:var(--house-a-d);--hc-l:#FBE2B7;--hc-e:#EDCB92;--hc-w:#FDF7EC;
+}
+.hbar[data-house="B"],.house-block[data-house-block="B"],.lg-house[data-house="B"],.house-opt[data-pick-house="B"]{
+  --hc:var(--house-b);--hc-d:var(--house-b-d);--hc-l:#C9EFDE;--hc-e:#9FDCBF;--hc-w:#EFFAF4;
+}
+.hbar[data-house="C"],.house-block[data-house-block="C"],.lg-house[data-house="C"],.house-opt[data-pick-house="C"]{
+  --hc:var(--house-c);--hc-d:var(--house-c-d);--hc-l:#D4E6FD;--hc-e:#ADD0F6;--hc-w:#F1F7FE;
+}
+.hbar[data-house="D"],.house-block[data-house-block="D"],.lg-house[data-house="D"],.house-opt[data-pick-house="D"]{
+  --hc:var(--house-d);--hc-d:var(--house-d-d);--hc-l:#E5DAFC;--hc-e:#CBB8F6;--hc-w:#F6F2FE;
+}
 
 /* 3룸 요약 스트립 */
 .three-strip-wrap{
@@ -286,17 +319,13 @@ a{color:var(--teal)}
 .hbars{display:flex;flex-direction:column;gap:2px;flex:1}
 .hbar{
   display:grid;grid-template-columns:13px 1fr;align-items:stretch;gap:2px;
-  border-radius:5px;min-height:15px;overflow:hidden;background:var(--bg-soft);
+  border-radius:5px;min-height:15px;overflow:hidden;background:var(--hc-w,#FBF9F5);
 }
-.hbar.no-data{background:transparent;min-height:15px}
+.hbar.no-data{min-height:15px}
 .hbar .hl{
   font-size:9px;font-weight:900;line-height:15px;text-align:center;color:#fff;border-radius:4px;
-  background:#B9B2A4;letter-spacing:0;
+  background:var(--hc,#B9B2A4);letter-spacing:0;
 }
-.hbar[data-house="A"] .hl{background:#F6EBD6;color:#8E5F0B}
-.hbar[data-house="B"] .hl{background:#E3F1EF;color:#0A5451}
-.hbar[data-house="C"] .hl{background:#E7EEF9;color:#28568C}
-.hbar[data-house="D"] .hl{background:#FAE9EF;color:#8E3153}
 .hbar.hide-house{display:none}
 .seg{
   display:block;border-radius:4px;font-size:9px;font-weight:800;line-height:15px;padding:0 3px;
@@ -304,8 +333,8 @@ a{color:var(--teal)}
   font-style:normal;
 }
 .seg .nm{display:none;font-style:normal;font-weight:600;opacity:.9}
-.seg.empty{background:transparent}
-.hbar.no-data .seg.empty{background:repeating-linear-gradient(90deg,transparent 0 4px,rgba(0,0,0,.035) 4px 5px)}
+.seg.empty{background:transparent;border:0;box-shadow:none}
+.hbar.no-data .seg.empty{background:transparent}
 @media (min-width:900px){
   .seg .nm{display:inline}
   .seg .nm{
@@ -313,15 +342,17 @@ a{color:var(--teal)}
   }
   .split .nm{display:none}
 }
-.seg.out{background:#8C8779}
-.seg.in{background:var(--teal)}
-.seg.stay{background:#D6CFC0;color:#6B6456}
-.seg.stay.airbnb{background:#F0B5AF;color:#7C2B24}
-.seg.in.airbnb{background:var(--coral)}
-.seg.out.airbnb{background:#B86A62}
-.seg.in.other{background:#6B7280}
-.seg.out.other{background:#4B5563}
-.seg.turn-in{box-shadow:inset 2px 0 0 rgba(255,255,255,.65)}
+/* 상태는 무늬로, 색은 하우스로 — 입실=진한 하우스색 · 숙박=연한 하우스색+왼쪽 띠 · 퇴실=테두리만 */
+.seg.in{background:var(--hc,#0E6E6A);color:#fff}
+.seg.stay{background:var(--hc-l,#EDE8DC);color:var(--hc-d,#5D5749);box-shadow:inset 3px 0 0 var(--hc,#8C8779),inset 0 0 0 1px var(--hc-e,#DDD7CA)}
+.seg.out{background:repeating-linear-gradient(135deg,var(--hc-e,#DCD6C9) 0 3px,#fff 3px 6px);color:var(--hc-d,#4B5563);box-shadow:inset 0 0 0 1.5px var(--hc,#8C8779)}
+/* 예약 구분 — 에어비앤비는 또렷한 점, 기타는 빈 점 */
+.seg.airbnb::before,.seg.other::before{
+  content:"";display:inline-block;width:4px;height:4px;border-radius:50%;margin-right:2px;
+  vertical-align:middle;position:relative;top:-.5px;background:#fff;box-shadow:0 0 0 1.5px #23211D;
+}
+.seg.other::before{background:transparent}
+.seg.turn-in{box-shadow:inset 2px 0 0 rgba(255,255,255,.75)}
 .seg.has-flight::after{content:"✈";font-size:8px;margin-left:1px}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:1.5px;min-height:15px}
 .split .seg{padding:0 2px}
@@ -332,9 +363,12 @@ a{color:var(--teal)}
 .day-sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
 .day-sheet-head h3{margin:0;font-size:17px;font-weight:800;letter-spacing:-.4px}
 .day-sheet-head p{margin:3px 0 0;font-size:12px;color:var(--ink-3)}
-.house-block{border:1px solid var(--line);border-radius:12px;padding:10px 11px;margin-bottom:9px;background:var(--bg-soft)}
+.house-block{
+  border:1px solid var(--line);border-left:4px solid var(--hc,#C9C1B1);
+  border-radius:12px;padding:10px 11px;margin-bottom:9px;background:var(--hc-w,var(--bg-soft));
+}
 .house-block-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:7px}
-.house-block-head b{font-size:13px;letter-spacing:-.2px}
+.house-block-head b{font-size:13px;letter-spacing:-.2px;color:var(--hc-d,var(--ink))}
 .house-block-head .desc{font-size:10.5px;color:var(--ink-3);font-weight:600}
 .ev-row{
   display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:10px;
@@ -345,10 +379,9 @@ a{color:var(--teal)}
   flex:0 0 auto;border-radius:6px;padding:2px 6px;font-size:10px;font-weight:900;line-height:1.6;
   color:#fff;background:#8C8779;
 }
-.ev-kind.in{background:var(--teal)}
-.ev-kind.in.airbnb{background:var(--coral)}
-.ev-kind.out.airbnb{background:#B86A62}
-.ev-kind.stay{background:#D6CFC0;color:#5D5749}
+.ev-kind.in{background:var(--hc,#0E6E6A);color:#fff}
+.ev-kind.stay{background:var(--hc-l,#EDE8DC);color:var(--hc-d,#5D5749)}
+.ev-kind.out{background:repeating-linear-gradient(135deg,var(--hc-e,#DCD6C9) 0 3px,#fff 3px 6px);color:var(--hc-d,#4B5563);box-shadow:inset 0 0 0 1.5px var(--hc,#8C8779)}
 .ev-body{flex:1;min-width:0}
 .ev-name{font-size:13px;font-weight:800;letter-spacing:-.2px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .ev-meta{font-size:11.5px;color:var(--ink-2);margin-top:2px}
@@ -532,9 +565,10 @@ textarea{min-height:64px;resize:vertical;line-height:1.55}
   border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:8px 9px;text-align:left;
 }
 .house-opt .h{font-size:13.5px;font-weight:900;display:flex;align-items:center;gap:4px}
+.house-opt .h .hd{width:9px;height:9px;border-radius:3px;background:var(--hc,#8C8779);flex:0 0 auto}
 .house-opt .m{font-size:10px;color:var(--ink-3);font-weight:700;margin-top:1px}
-.house-opt.on{border-color:var(--teal);background:var(--teal-l);box-shadow:0 0 0 3px rgba(14,110,106,.1)}
-.house-opt.on .m{color:var(--teal-d)}
+.house-opt.on{border-color:var(--hc,var(--teal));background:var(--hc-l,var(--teal-l));box-shadow:inset 0 0 0 1px var(--hc,var(--teal))}
+.house-opt.on .m{color:var(--hc-d,var(--teal-d))}
 .seg-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
 .seg-pick button{border:1.5px solid var(--line);background:var(--card);border-radius:9px;padding:8px 4px;font-size:12px;font-weight:800}
 .seg-pick button.on{border-color:var(--teal);background:var(--teal-l);color:var(--teal-d)}

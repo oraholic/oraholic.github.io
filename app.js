@@ -13,7 +13,7 @@
   const DEFAULT_PIN = '0000';
   const PIN_MIN_LEN = 4;
   const PIN_MAX_LEN = 12;
-  const APP_VERSION = '1.1.0';
+  const APP_VERSION = '1.1.1';
   const TEST = !!window.__GH_TEST__;
   const MAX_SYNC_MS = 20000;
 
@@ -464,7 +464,7 @@
 
   function segHTML(b, kind, extraCls) {
     if (!b) return '';
-    const cls = 'seg ' + kind + ' ' + (kind === 'stay' ? '' : srcCls(b.source)) + (b.nightFlight ? ' has-flight' : '') + (extraCls ? ' ' + extraCls : '');
+    const cls = 'seg ' + kind + ' ' + srcCls(b.source) + (b.nightFlight ? ' has-flight' : '') + (extraCls ? ' ' + extraCls : '');
     const label = kind === 'out' ? '퇴실' : kind === 'in' ? '입실' : '숙박';
     return '<span class="' + cls + '" data-seg="' + kind + '" data-booking="' + esc(b.id) + '" data-action="edit-booking" data-id="' + esc(b.id) + '"' +
       ' title="' + label + ' ' + esc(b.guestName) + ' · ' + esc(b.source) + (b.nightFlight ? ' · 밤/새벽 비행기' : '') + '">' +
@@ -549,11 +549,15 @@
         '<div class="three-strip-head"><b>🏝 3룸 빈방 한눈에 · ' + (mo + 1) + '월</b><span>3룸 마감은 🔴</span></div>' +
         '<div class="three-strip" id="threeRoomStrip">' + strip + '</div>' +
       '</div>' +
+      '<div class="legend legend-house">' +
+        '<span class="cap">하우스 색</span>' +
+        HOUSES.map((h) => '<span class="lg lg-house" data-house="' + h.id + '"><span class="sw hsw">' + h.id + '</span>' + h.name + '</span>').join('') +
+      '</div>' +
       '<div class="legend">' +
-        '<span class="lg"><span class="sw direct"></span>개별 입실</span>' +
-        '<span class="lg"><span class="sw airbnb"></span>에어비앤비</span>' +
-        '<span class="lg"><span class="sw" style="background:#8C8779"></span>퇴실</span>' +
-        '<span class="lg"><span class="sw stay"></span>숙박 중</span>' +
+        '<span class="lg"><span class="sw st-in"></span>입실</span>' +
+        '<span class="lg"><span class="sw st-stay"></span>숙박 중</span>' +
+        '<span class="lg"><span class="sw st-out"></span>퇴실</span>' +
+        '<span class="lg"><span class="sw src-dot"></span>에어비앤비</span>' +
         '<span class="lg">🌙 밤/새벽 비행기</span>' +
         '<span class="lg">퇴실+입실 = 당일 턴오버</span>' +
       '</div>' +
@@ -1195,7 +1199,7 @@
             '<input type="hidden" name="house" id="fHouse" value="' + d.house + '">' +
             '<div class="house-pick">' + HOUSES.map((x) =>
               '<button type="button" class="house-opt' + (x.id === d.house ? ' on' : '') + '" data-pick-house="' + x.id + '">' +
-                '<span class="h">' + x.name + '</span><span class="m">' + x.desc + '</span></button>').join('') + '</div></div>' +
+                '<span class="h"><i class="hd"></i>' + x.name + '</span><span class="m">' + x.desc + '</span></button>').join('') + '</div></div>' +
 
           '<div class="form-group"><h3>🏷 예약 구분</h3>' +
             '<input type="hidden" name="source" id="fSource" value="' + esc(d.source) + '">' +

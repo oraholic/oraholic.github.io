@@ -72,7 +72,8 @@ async function testAsync(name, fn) {
 }
 
 /* ---------- DOM 하네스 ---------- */
-function makeDom(preload) {
+function makeDom(preload, opts) {
+  const o = opts || {};
   const html = INDEX.replace(/<script src="\.\/app\.js"><\/script>/, '');
   const dom = new JSDOM(html, {
     url: 'https://oraholic.github.io/oraholic-guesthouse/',
@@ -94,8 +95,14 @@ function makeDom(preload) {
     value: { writeText: (t) => { clipboard.text = String(t); return Promise.resolve(); } }
   });
   if (preload) w.localStorage.setItem('oraholic-guesthouse-v1', preload);
+  if (o.preAuth) {
+    const store = o.preAuthStore === 'session' ? w.sessionStorage : w.localStorage;
+    store.setItem('oraholic-guesthouse-auth-v1', o.preAuth);
+  }
   w.eval(CONF);
   w.eval(APP);
+  // 기본은 이미 로그인한 기기처럼 동작시키고, o.locked 이면 첫 실행(잠금 화면) 상태로 둡니다.
+  if (!o.locked) w.__GH.attemptUnlock(o.pin || '0000', o.remember !== false);
   return { dom, w, d, $: (s) => d.querySelector(s), $$: (s) => Array.from(d.querySelectorAll(s)), clipboard };
 }
 
@@ -968,6 +975,217 @@ test('확정서 시트의 숙박인·항공 정보가 예약에서 채워진다'
   assert(ctx.$('#cArrive').value.length > 8, '세부 도착 일시가 비어 있습니다');
   assert(ctx.$('#cDepart').value.length > 8, '세부 출발 일시가 비어 있습니다');
   click(ctx.w, ctx.$('[data-action="close-sheet"]'));
+});
+
+/* ============================================================
+   14. 접속 비밀번호 잠금
+   ============================================================ */
+console.log('\n[14] 접속 비밀번호 잠금');
+
+test('앱을 처음 열면 잠금 화면이 뜨고 앱 껍데기는 숨겨진다', () => {
+  const L = makeDom(null, { locked: true });
+  const shell = L.$('#app-shell');
+  const screen = L.$('#lockScreen');
+  assert(shell, '#app-shell 이 없습니다');
+  assert(shell.hasAttribute('hidden'), '앱 껍데기에 hidden 이 있어야 합니다');
+  assert(shell.classList.contains('hidden'), '앱 껍데기가 숨겨져 있어야 합니다');
+  assert(screen, '잠금 화면이 없습니다');
+  assert(!screen.classList.contains('hidden'), '잠금 화면이 보여야 합니다');
+  includes(screen.textContent, '오라홀릭 게스트하우스');
+  includes(screen.textContent, '관리자 로그인');
+  assert(L.$('#lockPin'), '비밀번호 입력칸이 없습니다');
+  eq(L.$('#lockSubmit').getAttribute('type'), 'submit', 'Enter 로도 제출되도록 submit 버튼');
+  assert(L.$('#lockKeep').checked, '"이 기기에서 로그인 유지"는 기본 체크여야 합니다');
+  includes(L.$('#lockDefaultHint').textContent, '0000');
+  eq(L.w.__GH.locked, true);
+  L.dom.window.close();
+});
+
+test('잠긴 동안에는 예약 데이터가 그려지지 않는다', () => {
+  const preload = JSON.stringify({
+    bookings: [{ id: 'secret-1', house: 'A', guestName: '숨은손님', checkIn: '2026-12-01', checkOut: '2026-12-03' }]
+  });
+  const L = makeDom(preload, { locked: true });
+  eq(L.w.__GH.state.bookings.length, 1, '데이터는 읽혀 있어도');
+  eq(L.$('#viewCalendar').innerHTML, '', '캘린더는 비어 있어야 합니다');
+  eq(L.$('#viewBookings').innerHTML, '', '예약 화면은 비어 있어야 합니다');
+  assert(L.d.body.textContent.indexOf('숨은손님') < 0, '잠금 화면 뒤에 손님 이름이 남으면 안 됩니다');
+  L.w.__GH.renderAll();
+  eq(L.$('#viewCalendar').innerHTML, '', '잠긴 상태의 renderAll 은 그리지 않습니다');
+  L.dom.window.close();
+});
+
+test('틀린 비밀번호는 잠금을 풀지 못하고 안내 문구를 보여 준다', () => {
+  const L = makeDom(null, { locked: true });
+  setVal(L.w, L.$('#lockPin'), '1234');
+  fire(L.w, L.$('#lockForm'), 'submit');
+  eq(L.w.__GH.locked, true, '잠금이 유지되어야 합니다');
+  assert(L.$('#app-shell').hasAttribute('hidden'));
+  includes(L.$('#lockError').textContent, '맞지 않습니다');
+  eq(L.$('#lockPin').value, '', '틀리면 입력칸을 비웁니다');
+  assert(!L.w.localStorage.getItem(L.w.__GH.AUTH_KEY), '틀린 비밀번호로 로그인 기록을 남기지 않습니다');
+  eq(L.$$('.day').length, 0);
+  L.dom.window.close();
+});
+
+test('기본 비밀번호 0000 으로 잠금이 풀린다', () => {
+  const L = makeDom(null, { locked: true });
+  includes(L.$('#lockDefaultHint').textContent, '0000');
+  setVal(L.w, L.$('#lockPin'), '0000');
+  fire(L.w, L.$('#lockForm'), 'submit');
+  eq(L.w.__GH.locked, false, '잠금이 풀려야 합니다');
+  assert(!L.$('#app-shell').hasAttribute('hidden'), '앱이 보여야 합니다');
+  assert(L.$('#lockScreen').classList.contains('hidden'), '잠금 화면이 사라져야 합니다');
+  assert(L.$$('.day').length >= 28, '캘린더가 그려져야 합니다');
+  assert(L.w.localStorage.getItem(L.w.__GH.AUTH_KEY), '"이 기기에서 로그인 유지"를 켰으니 localStorage 에 기록');
+  assert(!L.w.sessionStorage.getItem(L.w.__GH.AUTH_KEY));
+  L.dom.window.close();
+});
+
+test('"이 기기에서 로그인 유지"를 끄면 이 탭에서만 유지된다', () => {
+  const L = makeDom(null, { locked: true });
+  L.$('#lockKeep').checked = false;
+  setVal(L.w, L.$('#lockPin'), '0000');
+  fire(L.w, L.$('#lockForm'), 'submit');
+  eq(L.w.__GH.locked, false);
+  assert(L.w.sessionStorage.getItem(L.w.__GH.AUTH_KEY), 'sessionStorage 에 기록');
+  assert(!L.w.localStorage.getItem(L.w.__GH.AUTH_KEY), 'localStorage 에는 남기지 않습니다');
+  L.dom.window.close();
+});
+
+test('로그인 유지 기록이 있으면 다시 열 때 비밀번호를 묻지 않는다', () => {
+  const first = makeDom(null, { locked: true });
+  setVal(first.w, first.$('#lockPin'), '0000');
+  fire(first.w, first.$('#lockForm'), 'submit');
+  const rec = first.w.localStorage.getItem(first.w.__GH.AUTH_KEY);
+  assert(rec, '로그인 기록이 없습니다');
+  const again = makeDom(null, { locked: true, preAuth: rec });
+  eq(again.w.__GH.locked, false, '저장된 로그인으로 바로 열려야 합니다');
+  assert(!again.$('#app-shell').hasAttribute('hidden'));
+  assert(again.$('#lockScreen').classList.contains('hidden'));
+  first.dom.window.close();
+  again.dom.window.close();
+});
+
+test('비밀번호를 바꾸면 이전 비밀번호로는 열리지 않는다', () => {
+  const L = makeDom(null, { locked: true });
+  eq(L.w.__GH.attemptUnlock('0000', true), true);
+  const r = L.w.__GH.changePin('0000', '2580');
+  assert(r.ok, r.message);
+  includes(r.message, '바꿨습니다');
+  eq(L.w.__GH.isDefaultPin(), false);
+  const saved = JSON.parse(L.w.localStorage.getItem('oraholic-guesthouse-v1'));
+  assert(saved.security && saved.security.pinHash, '비밀번호가 이 기기에 저장되지 않았습니다');
+  eq(saved.security.pinHash, L.w.__GH.hashPin('2580'));
+  L.w.__GH.lockNow({ silent: true });
+  eq(L.w.__GH.locked, true);
+  setVal(L.w, L.$('#lockPin'), '0000');
+  fire(L.w, L.$('#lockForm'), 'submit');
+  eq(L.w.__GH.locked, true, '이전 비밀번호로는 열리지 않아야 합니다');
+  setVal(L.w, L.$('#lockPin'), '2580');
+  fire(L.w, L.$('#lockForm'), 'submit');
+  eq(L.w.__GH.locked, false, '새 비밀번호로 열려야 합니다');
+  assert(L.$('#lockDefaultHint').classList.contains('hidden'), '기본 비밀번호 안내는 사라져야 합니다');
+  L.dom.window.close();
+});
+
+test('설정의 "접속 비밀번호 변경"으로 바꿀 수 있다', () => {
+  const L = makeDom();
+  L.w.__GH.switchView('settings');
+  const block = L.$('#lockBlock');
+  assert(block, '설정에 접속 비밀번호 구역이 없습니다');
+  includes(block.textContent, '접속 비밀번호');
+  assert(L.$('#pinCurrent') && L.$('#pinNew') && L.$('#pinNew2'), '입력칸 3개');
+  assert(L.$('[data-action="lock-now"]'), '설정의 잠금 버튼이 없습니다');
+
+  setVal(L.w, L.$('#pinCurrent'), '0000');
+  setVal(L.w, L.$('#pinNew'), '12');
+  setVal(L.w, L.$('#pinNew2'), '12');
+  fire(L.w, L.$('#pinForm'), 'submit');
+  includes(L.$('#pinNotice').textContent, '4자 이상');
+  eq(L.w.__GH.isDefaultPin(), true, '짧은 비밀번호는 바꾸지 않습니다');
+
+  setVal(L.w, L.$('#pinCurrent'), '9999');
+  setVal(L.w, L.$('#pinNew'), '4821');
+  fire(L.w, L.$('#pinForm'), 'submit');
+  includes(L.$('#pinNotice').textContent, '지금 비밀번호가 맞지 않습니다');
+
+  setVal(L.w, L.$('#pinCurrent'), '0000');
+  setVal(L.w, L.$('#pinNew'), '4821');
+  setVal(L.w, L.$('#pinNew2'), '9999');
+  fire(L.w, L.$('#pinForm'), 'submit');
+  includes(L.$('#pinNotice').textContent, '서로 다릅니다');
+
+  setVal(L.w, L.$('#pinCurrent'), '0000');
+  setVal(L.w, L.$('#pinNew'), '4821');
+  setVal(L.w, L.$('#pinNew2'), '4821');
+  fire(L.w, L.$('#pinForm'), 'submit');
+  includes(L.$('#pinNotice').textContent, '바꿨습니다');
+  eq(L.$('#pinCurrent').value, '', '바꾼 뒤 입력칸을 비웁니다');
+  eq(L.w.__GH.locked, false, '바꾼 뒤에도 열린 상태로 남습니다');
+  eq(L.w.__GH.hashPin('4821'), L.w.__GH.state.security.pinHash);
+  L.dom.window.close();
+});
+
+test('상단 잠금 버튼으로 언제든 다시 잠근다', () => {
+  const L = makeDom();
+  eq(L.w.__GH.locked, false);
+  assert(L.$('#lockBtn'), '상단 잠금 버튼이 없습니다');
+  click(L.w, L.$('#lockBtn'));
+  eq(L.w.__GH.locked, true);
+  assert(L.$('#app-shell').hasAttribute('hidden'), '앱이 가려져야 합니다');
+  assert(!L.$('#lockScreen').classList.contains('hidden'), '잠금 화면이 보여야 합니다');
+  assert(!L.w.localStorage.getItem(L.w.__GH.AUTH_KEY), '로그인 기록을 지웁니다');
+  assert(!L.w.sessionStorage.getItem(L.w.__GH.AUTH_KEY), '세션 기록도 지웁니다');
+  eq(L.$('#viewCalendar').innerHTML, '', '잠글 때 예약 화면을 비웁니다');
+  eq(L.$$('.day').length, 0);
+  setVal(L.w, L.$('#lockPin'), '0000');
+  fire(L.w, L.$('#lockForm'), 'submit');
+  eq(L.w.__GH.locked, false, '다시 비밀번호로 열 수 있습니다');
+  L.dom.window.close();
+});
+
+test('공동 운영 동기화로 바뀐 접속 비밀번호가 전해진다', async () => {
+  const L = makeDom();
+  const g = L.w.__GH;
+  let putBody = null;
+  L.w.fetch = function (url, opts) {
+    if (opts && opts.method === 'PUT') { putBody = JSON.parse(opts.body); return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) }); }
+    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ bookings: [] }) });
+  };
+  g.changePin('0000', '7777');
+  g.state.sync.url = 'https://demo.firebaseio.com';
+  g.state.sync.code = 'oraholic-cebu';
+  g.state.sync.enabled = true;
+  const res = await g.syncNow({ force: true });
+  assert(res.ok, '동기화 실패: ' + JSON.stringify(res));
+  assert(putBody && putBody.security && putBody.security.pinHash, '비밀번호 해시를 함께 올리지 않았습니다');
+  eq(putBody.security.pinHash, g.hashPin('7777'));
+  assert(g.state.security.pinUpdatedAt > 0, '바꾼 시각을 남깁니다');
+  g.state.sync.enabled = false;
+  L.dom.window.close();
+});
+
+test('상대 기기가 바꾼 비밀번호를 동기화로 받는다', async () => {
+  const L = makeDom();
+  const g = L.w.__GH;
+  const remote = { bookings: [], security: { pinHash: g.hashPin('1357'), pinUpdatedAt: Date.now() + 5000 } };
+  L.w.fetch = function (url, opts) {
+    if (opts && opts.method === 'PUT') return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(remote) });
+  };
+  g.state.sync.url = 'https://demo.firebaseio.com';
+  g.state.sync.code = 'oraholic-cebu';
+  g.state.sync.enabled = true;
+  const res = await g.syncNow({ force: true });
+  assert(res.ok, '동기화 실패: ' + JSON.stringify(res));
+  eq(g.isDefaultPin(), false, '상대가 바꾼 비밀번호를 받아들여야 합니다');
+  g.lockNow({ silent: true });
+  setVal(L.w, L.$('#lockPin'), '1357');
+  fire(L.w, L.$('#lockForm'), 'submit');
+  eq(g.locked, false, '받은 새 비밀번호로 열려야 합니다');
+  g.state.sync.enabled = false;
+  L.dom.window.close();
 });
 
 /* ---------- 결과 ---------- */

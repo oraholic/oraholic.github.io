@@ -19,7 +19,34 @@
 </head>
 <body>
 
-<div class="app">
+<!-- 접속 비밀번호 잠금 화면 · 비밀번호를 맞히기 전에는 앱(app-shell)을 그리지 않습니다 -->
+<div id="lockScreen" class="lock-screen" role="dialog" aria-modal="true" aria-labelledby="lockTitle" aria-describedby="lockSub">
+  <div class="lock-card">
+    <div class="lock-mark"><img src="./icon.svg" alt="" width="56" height="56"></div>
+    <h1 id="lockTitle">오라홀릭 게스트하우스</h1>
+    <p class="lock-sub" id="lockSub">관리자 로그인</p>
+    <p class="lock-lead">예약 장부는 <b>비밀번호를 아는 사람만</b> 열 수 있습니다.</p>
+
+    <form id="lockForm" class="lock-form" novalidate autocomplete="off">
+      <div class="field" style="margin:0">
+        <label for="lockPin">접속 비밀번호</label>
+        <input type="password" id="lockPin" class="lock-pin" inputmode="numeric" maxlength="12"
+               autocomplete="current-password" spellcheck="false" placeholder="비밀번호">
+      </div>
+      <label class="lock-keep" for="lockKeep">
+        <input type="checkbox" id="lockKeep" checked>
+        <span>이 기기에서 로그인 유지</span>
+      </label>
+      <div id="lockError" class="lock-error" role="alert" aria-live="polite"></div>
+      <button type="submit" class="btn primary block lock-submit" id="lockSubmit">🔓 잠금 해제</button>
+    </form>
+
+    <p class="lock-hint" id="lockDefaultHint">처음 여는 기기라면 기본 비밀번호 <b>0000</b>으로 들어간 뒤, <b>⚙️ 설정 → 접속 비밀번호</b>에서 꼭 바꿔 주세요.</p>
+    <p class="lock-foot">사장님 · 엘레나</p>
+  </div>
+</div>
+
+<div class="app hidden" id="app-shell" hidden>
 
   <header class="topbar">
     <div class="brand">
@@ -38,6 +65,7 @@
         <span id="operatorName">사장님</span>
         <span class="caret" aria-hidden="true">▾</span>
       </button>
+      <button type="button" id="lockBtn" class="lock-btn" title="잠금 · 로그아웃" aria-label="잠금">🔒</button>
     </div>
   </header>
 

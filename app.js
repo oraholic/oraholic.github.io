@@ -9,7 +9,11 @@
 (function () {
   /* ---------- 0. 기본 상수 ---------- */
   const LS_KEY = 'oraholic-guesthouse-v1';
-  const APP_VERSION = '1.0.0';
+  const AUTH_KEY = 'oraholic-guesthouse-auth-v1';
+  const DEFAULT_PIN = '0000';
+  const PIN_MIN_LEN = 4;
+  const PIN_MAX_LEN = 12;
+  const APP_VERSION = '1.1.0';
   const TEST = !!window.__GH_TEST__;
   const MAX_SYNC_MS = 20000;
 
@@ -68,6 +72,7 @@
       v: 1,
       bookings: [],
       settings: { operator: '사장님', currency: 'PHP' },
+      security: { pinHash: hashPin(DEFAULT_PIN), pinUpdatedAt: 0 },
       sync: { url: '', code: '', enabled: false, lastSync: null },
       deviceId: rid(),
       updatedAt: 0
@@ -132,6 +137,9 @@
     state.bookings = (raw.bookings || []).map(normalizeBooking);
     state.settings = Object.assign(base.settings, raw.settings || {});
     state.sync = Object.assign(base.sync, raw.sync || {});
+    state.security = Object.assign({ pinHash: hashPin(DEFAULT_PIN), pinUpdatedAt: 0 }, raw.security || {});
+    if (!state.security.pinHash) state.security.pinHash = hashPin(DEFAULT_PIN);
+    if (!num(state.security.pinUpdatedAt)) state.security.pinUpdatedAt = 0;
     if (!state.settings.operator) state.settings.operator = '사장님';
   }
 
@@ -1077,6 +1085,27 @@
         '<div class="tiny muted" style="margin-top:8px">현재 작업자 · <b>' + esc(op) + '</b> — 새 예약과 수정에 이 이름이 남습니다.</div>' +
       '</section>' +
 
+      '<section class="set-block" id="lockBlock">' +
+        '<h2>🔒 접속 비밀번호 <span class="badge dep-pending' + (isDefaultPin() ? '' : ' hidden') + '" id="lockDefaultBadge">기본 0000</span></h2>' +
+        '<p class="lead">앱을 열 때 물어보는 비밀번호입니다. <b>사장님과 엘레나가 같은 비밀번호</b>를 씁니다. 공동 운영 동기화가 켜져 있으면 바꾼 비밀번호가 상대 기기에도 함께 전해집니다.</p>' +
+        '<form id="pinForm" novalidate autocomplete="off">' +
+          '<div class="field" style="margin:0 0 8px"><label for="pinCurrent">지금 비밀번호</label>' +
+            '<input type="password" id="pinCurrent" inputmode="numeric" maxlength="12" autocomplete="current-password" placeholder="지금 쓰는 비밀번호"></div>' +
+          '<div class="grid2">' +
+            '<div class="field" style="margin:0"><label for="pinNew">새 비밀번호 (4자 이상)</label>' +
+              '<input type="password" id="pinNew" inputmode="numeric" maxlength="12" autocomplete="new-password" placeholder="예: 2580"></div>' +
+            '<div class="field" style="margin:0"><label for="pinNew2">새 비밀번호 확인</label>' +
+              '<input type="password" id="pinNew2" inputmode="numeric" maxlength="12" autocomplete="new-password" placeholder="한 번 더"></div>' +
+          '</div>' +
+          '<div id="pinNotice" class="form-notice" role="alert"></div>' +
+          '<div class="data-row" style="margin-top:8px">' +
+            '<button type="submit" class="btn primary sm" id="pinChangeBtn">비밀번호 바꾸기</button>' +
+            '<button type="button" class="btn sm ghost" data-action="lock-now">🔒 지금 잠금</button>' +
+          '</div>' +
+          '<div class="tiny muted" style="margin-top:8px;line-height:1.65">기본 비밀번호는 <b>0000</b>입니다. 처음 한 번은 꼭 바꿔 주세요. 비밀번호는 이 기기에 저장되고, 공동 운영을 켰다면 Firebase에도 함께 보관됩니다.</div>' +
+        '</form>' +
+      '</section>' +
+
       '<section class="set-block" id="syncBlock">' +
         '<h2>🔄 공동 운영 동기화 <span class="badge dep-received">실시간</span></h2>' +
         '<p class="lead">사장님과 엘레나가 <b>같은 예약을 실시간으로</b> 보고 고칠 수 있습니다. 한 사람이 예약을 넣으면 다른 사람 화면에도 바로 나타납니다. 설정은 한 번만 하면 됩니다.</p>' +
@@ -1466,10 +1495,14 @@
       const merged = mergeBookings(state.bookings, (remote && remote.bookings) || []);
       const changed = JSON.stringify(merged) !== JSON.stringify(state.bookings);
       state.bookings = merged;
+      const pinChanged = adoptRemoteSecurity(remote);
       const put = await fetch(ep, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ v: 1, app: 'oraholic-guesthouse', updatedAt: Date.now(), bookings: merged })
+        body: JSON.stringify({
+          v: 1, app: 'oraholic-guesthouse', updatedAt: Date.now(), bookings: merged,
+          security: { pinHash: state.security.pinHash, pinUpdatedAt: state.security.pinUpdatedAt }
+        })
       });
       if (!put || !put.ok) throw new Error('HTTP ' + (put ? put.status : '?'));
       state.sync.lastSync = Date.now();
@@ -1477,6 +1510,7 @@
       syncRuntime = 'on';
       setSyncStatus('on');
       if (changed) renderAll();
+      if (pinChanged && !locked) toast('공동 운영으로 접속 비밀번호가 바뀌었습니다. 다음에 열 때는 새 비밀번호를 씁니다.', 'warn');
       return { ok: true, changed };
     } catch (err) {
       syncRuntime = 'error';
@@ -1618,9 +1652,11 @@
   function resetAll() {
     const op = state.settings.operator;
     const sync = state.sync;
+    const security = state.security;   // 전체 초기화해도 접속 비밀번호는 그대로 둡니다
     state = defaultState();
     state.settings.operator = op;
     state.sync = sync;
+    state.security = security;
     save(false);
     renderAll();
     toast('모든 예약을 지웠습니다. 깨끗한 상태에서 시작합니다.');
@@ -1657,8 +1693,171 @@
     return { ok: true, count: clean.length };
   }
 
+  /* ---------- 15.5 접속 비밀번호 잠금 ---------- */
+  function hashPin(pin) {
+    // 4자리 비밀번호가 저장소에 그대로 남지 않도록 두 개의 32비트 해시로 보관합니다.
+    const s = 'oraholic-guesthouse:' + String(pin == null ? '' : pin);
+    let h1 = 0x811c9dc5;
+    let h2 = 0x1000193;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+      h2 = Math.imul(h2 ^ (c + i), 0x85ebca6b) >>> 0;
+    }
+    const hex = (n) => ('00000000' + n.toString(16)).slice(-8);
+    return hex(h1) + hex(h2);
+  }
+  function isDefaultPin() { return state.security.pinHash === hashPin(DEFAULT_PIN); }
+
+  let locked = true;   // 화면이 잠겨 있는지 (잠긴 동안 예약 데이터는 그리지 않습니다)
+
+  function readAuthRecord(store) {
+    try {
+      const raw = JSON.parse(store.getItem(AUTH_KEY) || 'null');
+      return raw && typeof raw === 'object' ? raw : null;
+    } catch (e) { return null; }
+  }
+  function authMatches(rec) { return !!(rec && rec.pinHash && rec.pinHash === state.security.pinHash); }
+  function keepRecord() { try { return readAuthRecord(localStorage); } catch (e) { return null; } }
+  function hasValidSession() {
+    if (authMatches(keepRecord())) return true;
+    try { return authMatches(readAuthRecord(sessionStorage)); } catch (e) { return false; }
+  }
+  function writeAuthRecord(remember) {
+    const rec = JSON.stringify({ pinHash: state.security.pinHash, at: Date.now() });
+    try {
+      if (remember) {
+        localStorage.setItem(AUTH_KEY, rec);
+        try { sessionStorage.removeItem(AUTH_KEY); } catch (e) {}
+      } else {
+        sessionStorage.setItem(AUTH_KEY, rec);
+        try { localStorage.removeItem(AUTH_KEY); } catch (e) {}
+      }
+    } catch (e) { /* 저장 공간 부족 */ }
+  }
+  function clearAuthRecord() {
+    try { localStorage.removeItem(AUTH_KEY); } catch (e) {}
+    try { sessionStorage.removeItem(AUTH_KEY); } catch (e) {}
+  }
+
+  function clearProtectedViews() {
+    closeSheet();
+    const t = $('#toastRoot');
+    if (t) t.innerHTML = '';
+    ['viewCalendar', 'viewToday', 'viewBookings', 'viewFinder', 'viewConfirm', 'viewSettings'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '';
+    });
+  }
+
+  function setLockError(msg, ok) {
+    const el = $('#lockError');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = 'lock-error' + (msg ? (ok ? ' ok' : '') : '');
+  }
+  function refreshLockHint() {
+    const hint = $('#lockDefaultHint');
+    if (hint) hint.classList.toggle('hidden', !isDefaultPin());
+    const badge = $('#lockDefaultBadge');
+    if (badge) badge.classList.toggle('hidden', !isDefaultPin());
+  }
+
+  function showLock(opts) {
+    locked = true;
+    const shell = $('#app-shell');
+    if (shell) { shell.classList.add('hidden'); shell.setAttribute('hidden', ''); }
+    const screen = $('#lockScreen');
+    if (screen) screen.classList.remove('hidden');
+    clearProtectedViews();
+    setLockError('');
+    refreshLockHint();
+    const keep = $('#lockKeep');
+    if (keep && !(opts && opts.keepState)) keep.checked = true;
+    const pin = $('#lockPin');
+    if (pin) {
+      pin.value = '';
+      if (!(opts && opts.noFocus)) setTimeout(() => { try { pin.focus(); } catch (e) {} }, 60);
+    }
+    document.body.style.overflow = 'hidden';
+  }
+
+  function unlockApp(opts) {
+    // 로그인 기록이 확인될 때만 앱을 보여 줍니다.
+    if (!(opts && opts.force) && !hasValidSession()) return false;
+    locked = false;
+    const shell = $('#app-shell');
+    if (shell) { shell.classList.remove('hidden'); shell.removeAttribute('hidden'); }
+    const screen = $('#lockScreen');
+    if (screen) screen.classList.add('hidden');
+    document.body.style.overflow = '';
+    renderHeader();
+    renderAll();
+    return true;
+  }
+
+  function attemptUnlock(pin, remember) {
+    const val = String(pin == null ? '' : pin).trim();
+    if (!val) { setLockError('비밀번호를 입력해 주세요.'); return false; }
+    if (hashPin(val) !== state.security.pinHash) {
+      setLockError('비밀번호가 맞지 않습니다. 다시 확인해 주세요.');
+      const card = $('.lock-card');
+      if (card) { card.classList.add('shake'); setTimeout(() => { try { card.classList.remove('shake'); } catch (e) {} }, 400); }
+      const el = $('#lockPin');
+      if (el) { el.value = ''; try { el.focus(); } catch (e) {} }
+      return false;
+    }
+    writeAuthRecord(!!remember);
+    unlockApp();
+    if (isDefaultPin()) toast('기본 비밀번호 0000으로 열었습니다. ⚙️ 설정에서 새 비밀번호로 바꿔 주세요.', 'warn');
+    else toast('잠금을 풀었습니다 · ' + (state.settings.operator || '사장님'));
+    return true;
+  }
+
+  function lockNow(opts) {
+    clearAuthRecord();
+    showLock();
+    if (!(opts && opts.silent)) toast('잠겼습니다. 다시 열려면 접속 비밀번호를 입력하세요.');
+    return true;
+  }
+
+  function changePin(current, next, again) {
+    const cur = String(current == null ? '' : current).trim();
+    const nw = String(next == null ? '' : next).trim();
+    const nw2 = String(again == null ? '' : again).trim();
+    if (!cur) return { ok: false, message: '지금 쓰는 비밀번호를 먼저 입력해 주세요.' };
+    if (hashPin(cur) !== state.security.pinHash) return { ok: false, message: '지금 비밀번호가 맞지 않습니다.' };
+    if (nw.length < PIN_MIN_LEN) return { ok: false, message: '새 비밀번호는 ' + PIN_MIN_LEN + '자 이상으로 정해 주세요.' };
+    if (nw.length > PIN_MAX_LEN) return { ok: false, message: '새 비밀번호는 ' + PIN_MAX_LEN + '자까지 쓸 수 있습니다.' };
+    if (nw2 && nw2 !== nw) return { ok: false, message: '새 비밀번호 두 개가 서로 다릅니다.' };
+    if (nw === cur) return { ok: false, message: '지금 쓰는 비밀번호와 다른 번호로 정해 주세요.' };
+    state.security.pinHash = hashPin(nw);
+    state.security.pinUpdatedAt = Date.now();
+    save();                       // 이 기기 저장 + (연결되어 있으면) 공동 운영으로 전파
+    writeAuthRecord(authMatches(keepRecord()));   // 지금 이 기기는 새 비밀번호로 계속 열어 둡니다
+    locked = false;
+    refreshLockHint();
+    return {
+      ok: true,
+      message: '접속 비밀번호를 바꿨습니다.' + (state.sync.enabled ? ' 공동 운영이 켜져 있어 엘레나 기기에도 곧 전해집니다.' : '')
+    };
+  }
+
+  function adoptRemoteSecurity(remote) {
+    const r = remote && remote.security;
+    if (!r || !r.pinHash) return false;
+    if (num(r.pinUpdatedAt) > num(state.security.pinUpdatedAt)) {
+      state.security.pinHash = String(r.pinHash);
+      state.security.pinUpdatedAt = num(r.pinUpdatedAt);
+      refreshLockHint();
+      return true;
+    }
+    return false;
+  }
+
   /* ---------- 16. 렌더 ---------- */
   function renderAll() {
+    if (locked) return;   // 잠긴 동안에는 예약 데이터를 화면에 그리지 않습니다
     renderHeader();
     if (ui.view === 'calendar') renderCalendar();
     else if (ui.view === 'today') renderToday();
@@ -1775,6 +1974,7 @@
         case 'sync-now': syncNow({ force: true }).then((r) => toast(r.ok ? '동기화했습니다.' : '동기화에 실패했습니다.', r.ok ? null : 'err')); break;
         case 'sync-off': disableSync(); break;
         case 'op-pick': setOperator(act.getAttribute('data-op')); break;
+        case 'lock-now': lockNow(); break;
         case 'op-save-sheet': { const el = $('#opSheetCustom'); setOperator(el ? el.value : ''); break; }
         case 'op-save-custom': { const el = $('#opCustom'); setOperator(el ? el.value : ''); break; }
         case 'save-sample': {
@@ -1843,6 +2043,31 @@
     });
 
     document.addEventListener('submit', (e) => {
+      if (e.target && e.target.id === 'lockForm') {
+        e.preventDefault();
+        const pin = $('#lockPin');
+        const keep = $('#lockKeep');
+        attemptUnlock(pin ? pin.value : '', keep ? keep.checked : true);
+        return;
+      }
+      if (e.target && e.target.id === 'pinForm') {
+        e.preventDefault();
+        const r = changePin(
+          $('#pinCurrent') ? $('#pinCurrent').value : '',
+          $('#pinNew') ? $('#pinNew').value : '',
+          $('#pinNew2') ? $('#pinNew2').value : ''
+        );
+        const box = $('#pinNotice');
+        if (box) {
+          box.className = 'form-notice ' + (r.ok ? 'info' : 'err') + ' show';
+          box.innerHTML = (r.ok ? '✅ ' : '⛔ ') + esc(r.message);
+        }
+        if (r.ok) {
+          ['pinCurrent', 'pinNew', 'pinNew2'].forEach((id) => { const el = $('#' + id); if (el) el.value = ''; });
+          toast(r.message);
+        }
+        return;
+      }
       if (e.target && e.target.id === 'finderForm') {
         e.preventDefault();
         ui.finderInputs = {
@@ -1877,15 +2102,19 @@
     loadLocal();
     buildMobileTabs();
     wireEvents();
-    renderHeader();
-    renderAll();
 
     const fab = $('#fabAdd');
     if (fab) fab.addEventListener('click', () => openBookingForm(null, { date: todayStr(), house: 'A' }));
     const opBtn = $('#operatorBtn');
     if (opBtn) opBtn.addEventListener('click', openOperatorSheet);
+    const lockBtn = $('#lockBtn');
+    if (lockBtn) lockBtn.addEventListener('click', () => lockNow());
     const sb = $('#syncBadge');
     if (sb) sb.addEventListener('click', () => { switchView('settings'); setTimeout(() => { const el = $('#syncBlock'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60); });
+
+    // 이 기기에 남은 로그인 기록이 있으면 바로 열고, 없으면 잠금 화면을 보여 줍니다.
+    if (hasValidSession()) unlockApp();
+    else showLock({ noFocus: TEST });
 
     if (!TEST && state.sync.enabled) {
       syncNow().then(() => startSyncPolling());
@@ -1910,6 +2139,9 @@
     setOperator, loadSample, resetAll, exportJSON, importJSON,
     syncNow, syncEndpoint, setSyncStatus, mergeBookings,
     renderAll, switchView, openBookingForm, openOperatorSheet,
+    lockNow, unlockApp, attemptUnlock, changePin, isDefaultPin, hashPin, hasValidSession,
+    DEFAULT_PIN: DEFAULT_PIN, AUTH_KEY: AUTH_KEY,
+    get locked() { return locked; },
     validateBooking, saveLocal, ui,
     openConfirmation, renderConfirm, renderConfPreview, saveConfirmation,
     buildConfirmModel: function (booking, overrides) { return window.ORA_CONFIRM.buildModel(booking, overrides); },

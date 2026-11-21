@@ -945,7 +945,7 @@
 
   function openBalanceSheet() {
     const b = balance();
-    const html = '<form class="sheet" id="openingForm" novalidate>' +
+    const html = '<form class="sheet" id="openingSheetForm" novalidate>' +
       '<div class="sheet-grip"></div>' +
       '<div class="sheet-head"><h2>기초 잔액 설정</h2><button type="button" class="sheet-close" data-action="close-sheet" aria-label="닫기">✕</button></div>' +
       '<p class="tiny muted" style="margin-bottom:12px">장부를 시작한 날 실제로 가지고 있던 돈을 적으면, 그 뒤로는 수입·지출이 더해지고 빠져서 <b>현재 보유 잔액</b>이 자동으로 맞춰집니다.</p>' +
@@ -1434,7 +1434,7 @@
       toast((d.id ? '내역을 수정했습니다' : (saved.type === 'income' ? '수입' : '지출') + ' ' + money(saved.amount, saved.currency) + '을 기록했습니다'), 'ok');
       return;
     }
-    if (f.id === 'openingForm') {
+    if (f.id === 'openingForm' || f.id === 'openingSheetForm') {
       const php = $('#bOpenPhp') || $('#sOpenPhp');
       const krw = $('#bOpenKrw') || $('#sOpenKrw');
       setOpening(php ? php.value : 0, krw ? krw.value : 0);

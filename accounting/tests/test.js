@@ -664,7 +664,7 @@ test('기초 잔액 설정 시트에서 바로 저장한다', () => {
   assert(L.$('#bOpenPhp'), '기초 잔액 시트가 열려야 합니다');
   setVal(L.w, L.$('#bOpenPhp'), '25000');
   setVal(L.w, L.$('#bOpenKrw'), '600000');
-  fire(L.w, L.$('#openingForm'), 'submit');
+  fire(L.w, L.$('#openingSheetForm'), 'submit');
   eq(A.state.settings.opening.php, 25000);
   eq(A.state.settings.opening.krw, 600000);
   eq(L.$('#bOpenPhp'), null, '저장하면 시트가 닫힙니다');
@@ -682,6 +682,20 @@ test('설정 화면에서도 기초 잔액을 저장한다', () => {
   fire(L.w, L.$('#openingForm'), 'submit');
   eq(A.state.settings.opening.php, 30000);
   eq(A.state.settings.opening.krw, 250000);
+  L.dom.window.close();
+});
+
+test('시트를 열어도 화면에 중복 id가 생기지 않는다', () => {
+  const L = makeDom(null, {});
+  L.w.__AC.openBalanceSheet();
+  const ids = L.$$('[id]').map((el) => el.id);
+  const dup = ids.filter((id, i) => ids.indexOf(id) !== i);
+  eq(dup.join(','), '', '중복 id: ' + dup.join(','));
+  L.w.__AC.closeSheet();
+  L.w.__AC.openEntrySheet(null, 'expense');
+  const ids2 = L.$$('[id]').map((el) => el.id);
+  const dup2 = ids2.filter((id, i) => ids2.indexOf(id) !== i);
+  eq(dup2.join(','), '', '중복 id: ' + dup2.join(','));
   L.dom.window.close();
 });
 

@@ -124,7 +124,7 @@ test('처음 여는 기기는 잠금 화면부터 보여 준다', () => {
 
 test('잠겨 있는 동안 지출·수입 금액이 DOM에 그려지지 않는다', () => {
   const L = makeDom({
-    settings: { rate: 24.5 },
+    settings: { rate: 21.1 },
     entries: [
       { id: 'a1', type: 'expense', date: TODAY, region: 'PH', currency: 'PHP', amount: 518273, category: '월세', house: 'A' },
       { id: 'a2', type: 'income', date: TODAY, region: 'PH', currency: 'PHP', amount: 913744, category: '숙박 수입 - 개별', house: 'ALL' }
@@ -454,10 +454,15 @@ function seedMonth(A, ym) {
   A.addEntry({ type: 'expense', date: ym + '-02', region: 'KR', currency: 'KRW', amount: 120000, category: '물품 구입' });
 }
 
-test('환율 기본값은 1페소 = 24.5원', () => {
+test('환율 기본값은 1페소 = 21.1원 · 상단바에는 없고 설정에만 있다', () => {
   const L = makeDom(null, {});
-  eq(L.w.__AC.getRate(), 24.5);
-  includes(L.$('#rateChipText').textContent, '24.5');
+  const A = L.w.__AC;
+  eq(A.getRate(), 21.1);
+  eq(L.$('#rateChipText'), null, '상단바에서 환율 칩을 없췄습니다');
+  eq(L.$('#rateBtn'), null, '상단바에 환율 버튼이 없습니다');
+  A.showView('settings');
+  eq(L.$('#sRate').value, '21.1', '설정에 환율이 보입니다');
+  includes(L.$('#viewSettings').textContent, 'CSV');
   L.dom.window.close();
 });
 
@@ -467,11 +472,26 @@ test('총 수입·총 지출·월 순수익을 환산해 계산한다', () => {
   seedMonth(A, THIS_MONTH);
   const s = A.summarize(A.entriesForMonth(THIS_MONTH));
   near(s.income.php, 150000);
-  near(s.income.krwTotal, 150000 * 24.5);
+  near(s.income.krwTotal, 150000 * 21.1);
   near(s.expense.php, 35000);
   near(s.expense.krw, 120000);
-  near(s.expense.krwTotal, 35000 * 24.5 + 120000);
-  near(s.net, 150000 * 24.5 - (35000 * 24.5 + 120000));
+  near(s.expense.krwTotal, 35000 * 21.1 + 120000);
+  near(s.net, 150000 * 21.1 - (35000 * 21.1 + 120000));
+  L.dom.window.close();
+});
+
+test('월 순수익은 페소 수입 − 페소 지출로 따로 계산된다 (한국 지출 제외)', () => {
+  const L = makeDom(null, {});
+  const A = L.w.__AC;
+  seedMonth(A, THIS_MONTH);
+  const s = A.summarize(A.entriesForMonth(THIS_MONTH));
+  const phpNet = s.income.php - s.expense.php;
+  near(phpNet, 115000);
+  L.w.__AC.showView('dashboard');
+  eq(L.$('.kpi.net .v').textContent, '₱115,000', '순수익은 페소 금액으로 보입니다');
+  eq(L.$('.kpi.income .v').textContent, '₱150,000');
+  eq(L.$('.kpi.expense .v').textContent, '₱35,000');
+  includes(L.$('#kpiExpenseSub').textContent, '한국 지출 ₩120,000', '한국 지출은 총 지출 아래 따로 적습니다');
   L.dom.window.close();
 });
 
@@ -480,7 +500,7 @@ test('필리핀 현지 지출과 한국 지출을 나눠 센다', () => {
   const A = L.w.__AC;
   seedMonth(A, THIS_MONTH);
   const s = A.summarize(A.entriesForMonth(THIS_MONTH));
-  near(s.ph.krwTotal, 35000 * 24.5);
+  near(s.ph.krwTotal, 35000 * 21.1);
   near(s.kr.krwTotal, 120000);
   eq(s.ph.count, 1);
   eq(s.kr.count, 1);
@@ -497,7 +517,7 @@ test('환율을 바꾸면 모든 환산 금액이 다시 계산된다', () => {
   const s = A.summarize(A.entriesForMonth(THIS_MONTH));
   near(s.income.krwTotal, 150000 * 25);
   near(s.expense.krwTotal, 35000 * 25 + 120000);
-  includes(L.$('#rateChipText').textContent, '25');
+  includes(L.$('#viewReport').textContent, '₱1 = ₩25', '설정한 환율은 분석 탭 환산에 쓰입니다');
   L.dom.window.close();
 });
 
@@ -518,7 +538,7 @@ test('다른 달 내역은 이번 달 합계에 섞이지 않는다', () => {
   seedMonth(A, THIS_MONTH);
   A.addEntry({ type: 'expense', date: AC.addMonths(THIS_MONTH, -1) + '-10', region: 'PH', currency: 'PHP', amount: 99999, category: '기타 지출' });
   const s = A.summarize(A.entriesForMonth(THIS_MONTH));
-  near(s.expense.krwTotal, 35000 * 24.5 + 120000);
+  near(s.expense.krwTotal, 35000 * 21.1 + 120000);
   L.dom.window.close();
 });
 
@@ -533,7 +553,7 @@ test('월 선택을 옮기면 그 달의 정산이 보인다', () => {
   includes(L.$('.mn-label').textContent, prev.slice(0, 4) + '년 ' + Number(prev.slice(5)) + '월');
   includes(L.$('#viewDashboard').textContent, '1,111');
   includes(L.$('.kpi.income .s').textContent, '이번 달 수입 없음', '이번 달 수입은 0으로 계산');
-  eq(L.$('.kpi.expense .v').textContent, AC.money(1111 * 24.5, 'KRW'), '이번 달 지출만 집계');
+  eq(L.$('.kpi.expense .v').textContent, AC.money(1111, 'PHP'), '이번 달 지출만 페소로 집계');
   click(L.w, L.$('[data-action="month-now"]'));
   eq(A.ui.month, THIS_MONTH, '이번 달 버튼으로 복귀');
   L.dom.window.close();
@@ -565,11 +585,11 @@ test('기초 잔액이 없으면 누적 수입 − 지출이 잔액이 된다', 
   const b = A.balance();
   near(b.php, 30000);
   near(b.krw, 0);
-  near(b.totalKRW, 30000 * 24.5);
+  near(b.totalKRW, 30000 * 21.1);
   L.dom.window.close();
 });
 
-test('기초 잔액(₱·₩)이 더해진다', () => {
+test('기초 잔액(₱)이 더해지고 한국 기초는 내부 값으로만 남는다', () => {
   const L = makeDom(null, {});
   const A = L.w.__AC;
   A.setOpening(10000, 500000);
@@ -579,20 +599,21 @@ test('기초 잔액(₱·₩)이 더해진다', () => {
   const b = A.balance();
   near(b.php, 10000 + 20000 - 5000);
   near(b.krw, 500000 - 120000);
-  near(b.totalKRW, (10000 + 20000 - 5000) * 24.5 + (500000 - 120000));
+  near(b.totalKRW, (10000 + 20000 - 5000) * 21.1 + (500000 - 120000));
   L.dom.window.close();
 });
 
-test('한국 지출만 있어도 한국 잔액이 줄고 통합 잔액에 반영된다', () => {
+test('한국 지출은 페소 잔액에서 빼지 않고 누적 기록으로만 남는다', () => {
   const L = makeDom(null, {});
   const A = L.w.__AC;
   A.resetData({ silent: true });
   A.setOpening(0, 1000000);
   A.addEntry({ type: 'expense', date: THIS_MONTH + '-09', region: 'KR', currency: 'KRW', amount: 250000, category: '기타 지출' });
   const b = A.balance();
+  near(b.php, 0, 0.01, '페소 잔액은 한국 지출에 영향받지 않습니다');
   near(b.krw, 750000);
-  near(b.php, 0);
-  near(b.totalKRW, 750000);
+  eq(b.krwOut, 250000, '한국 지출 누적');
+  eq(b.krwOutCount, 1);
   L.dom.window.close();
 });
 
@@ -607,7 +628,7 @@ test('통화를 섞어 적어도 각 통화 잔액이 따로 계산된다', () =
   const b = A.balance();
   near(b.php, 40000 - 2000);
   near(b.krw, 300000);
-  near(b.totalKRW, 38000 * 24.5 + 300000);
+  near(b.totalKRW, 38000 * 21.1 + 300000);
   L.dom.window.close();
 });
 
@@ -635,7 +656,7 @@ test('환율을 바꾸면 통합 잔액이 새 환율로 바뀐다', () => {
   L.dom.window.close();
 });
 
-test('대시보드 맨 위에 현재 보유 잔액이 보인다', () => {
+test('대시보드 맨 위 히어로는 페소 잔액을 크게 보여 준다', () => {
   const L = makeDom(null, {});
   const A = L.w.__AC;
   A.resetData({ silent: true });
@@ -648,40 +669,60 @@ test('대시보드 맨 위에 현재 보유 잔액이 보인다', () => {
   eq(first.id, 'balanceCard', '대시보드 맨 위에 있어야 합니다');
   const txt = card.textContent;
   includes(txt, '현재 보유 잔액');
-  includes(txt, '₱' + AC.fmtNum(10000), '필리핀 잔액');
-  includes(txt, '₩' + AC.fmtNum(450000), '한국 잔액');
-  includes(txt, AC.money(10000 * 24.5 + 450000, 'KRW'), '통합 환산 잔액');
-  includes(txt, '기초');
+  includes(txt, '필리핀 페소');
+  eq(L.$('#balanceCard .balance-total .v').textContent, '₱10,000', '필리핀 페소 잔액이 주인공입니다');
+  includes(txt, '기초 ₱12,000 + 수입 ₱0 − 지출 ₱2,000', '계산 내역');
   L.dom.window.close();
 });
 
-test('기초 잔액 설정 시트에서 바로 저장한다', () => {
+test('히어로의 한국은 잔액이 아니라 누적 지출 기록 한 줄이다', () => {
+  const L = makeDom(null, {});
+  const A = L.w.__AC;
+  A.resetData({ silent: true });
+  A.setOpening(500000, 0);
+  A.addEntry({ type: 'expense', date: THIS_MONTH + '-09', region: 'KR', currency: 'KRW', amount: 120000, category: '물품 구입' });
+  A.addEntry({ type: 'expense', date: THIS_MONTH + '-10', region: 'KR', currency: 'KRW', amount: 80000, category: '기타 지출' });
+  A.showView('dashboard');
+  const pill = L.$('#krwExpensePill');
+  assert(pill, '한국 지출 기록 줄이 있어야 합니다');
+  includes(pill.textContent, '한국 지출 기록: 누적');
+  includes(pill.textContent, '₩200,000');
+  includes(pill.textContent, '2건');
+  const txt = L.$('#balanceCard').textContent;
+  notIncludes(txt, '−₩', '잔액에 음수 원화가 보이면 안 됩니다');
+  notIncludes(txt, '-₩', '잔액에 음수 원화가 보이면 안 됩니다');
+  notIncludes(txt, '통합', '통합 환산 잔액을 보여 주지 않습니다');
+  eq(L.$('#balanceCard .balance-total .v').textContent, '₱500,000');
+  L.dom.window.close();
+});
+
+test('기초 잔액 설정 시트에서 페소 잔액만 저장한다', () => {
   const L = makeDom(null, {});
   const A = L.w.__AC;
   A.resetData({ silent: true });
   A.showView('dashboard');
   click(L.w, L.$('[data-action="edit-opening"]'));
   assert(L.$('#bOpenPhp'), '기초 잔액 시트가 열려야 합니다');
+  eq(L.$('#bOpenKrw'), null, '한국 기초 잔액 칸은 없앴습니다');
   setVal(L.w, L.$('#bOpenPhp'), '25000');
-  setVal(L.w, L.$('#bOpenKrw'), '600000');
   fire(L.w, L.$('#openingSheetForm'), 'submit');
   eq(A.state.settings.opening.php, 25000);
-  eq(A.state.settings.opening.krw, 600000);
   eq(L.$('#bOpenPhp'), null, '저장하면 시트가 닫힙니다');
   includes(L.$('#balanceCard').textContent, '₱25,000');
   L.dom.window.close();
 });
 
-test('설정 화면에서도 기초 잔액을 저장한다', () => {
+test('설정 화면에서도 페소 기초 잔액을 저장하고, 예전 한국 값은 지우지 않는다', () => {
   const L = makeDom(null, {});
   const A = L.w.__AC;
+  A.setOpening(1000, 250000);
   A.showView('settings');
   assert(L.$('#sOpenPhp'), '설정의 기초 잔액 입력칸');
+  eq(L.$('#sOpenKrw'), null, '한국 기초 잔액 칸은 없습니다');
   setVal(L.w, L.$('#sOpenPhp'), '30000');
-  setVal(L.w, L.$('#sOpenKrw'), '250000');
   fire(L.w, L.$('#openingForm'), 'submit');
   eq(A.state.settings.opening.php, 30000);
-  eq(A.state.settings.opening.krw, 250000);
+  eq(A.state.settings.opening.krw, 250000, '예전에 저장한 한국 기초 값은 그대로 둡니다');
   L.dom.window.close();
 });
 
@@ -806,7 +847,7 @@ test('필터를 걸면 합계도 걸린 내역만 계산한다', () => {
   A.setFilter('type', 'income');
   const s = A.summarize(A.filteredEntries());
   eq(s.expense.krwTotal, 0);
-  near(s.income.krwTotal, 3000 * 24.5);
+  near(s.income.krwTotal, 3000 * 21.1);
   L.dom.window.close();
 });
 
@@ -889,7 +930,7 @@ test('JSON 내보내기에 장부와 설정이 담기고 비밀번호는 빠진�
   const p = JSON.parse(raw);
   eq(p.app, 'oraholic-accounting');
   eq(p.entries.length, 4);
-  eq(p.settings.rate, 24.5);
+  eq(p.settings.rate, 21.1);
   notIncludes(raw, 'pinHash', '비밀번호 해시는 내보내지 않습니다');
   L.dom.window.close();
 });
@@ -936,7 +977,7 @@ test('CSV 정산표에 머리글·내역·합계가 들어간다', () => {
   includes(csv, '월세');
   includes(csv, '필리핀 현지');
   includes(csv, '한국');
-  includes(csv, '합계,순수익');
+  includes(csv, '합계,순수익 (₱)');
   includes(csv, '현재 보유 잔액');
   L.dom.window.close();
 });
@@ -1068,11 +1109,22 @@ test('service worker가 상대 경로로 자기 캐시만 다룬다', () => {
   includes(SW, 'self.registration');
 });
 
+test('service worker 캐시 버전을 v1.0.2로 올렸다', () => {
+  includes(SW, "const CACHE = 'oraholic-accounting-v1.0.2'");
+});
+
 test('상단바에 예약 관리로 돌아가는 전환 버튼이 있다', () => {
   includes(INDEX, 'class="app-switch"');
   includes(INDEX, 'href="../"');
   includes(INDEX, '📅');
   includes(INDEX, '예약 관리 열기');
+});
+
+test('상단바에서 환율 칩을 없앴다', () => {
+  notIncludes(INDEX, 'rate-chip', '환율 칩을 상단바에서 뺐습니다');
+  notIncludes(INDEX, 'rateChipText');
+  notIncludes(INDEX, 'rateBtn');
+  notIncludes(STYLES, '.rate-chip', '환율 칩 스타일도 함께 정리했습니다');
 });
 
 test('index.html은 상대 경로·잠금 화면·초록 테마를 쓴다', () => {
@@ -1166,14 +1218,19 @@ test('설정 화면에 환율·비밀번호·백업·기초 잔액이 있다', (
   L.dom.window.close();
 });
 
-test('환율을 설정 화면에서 바꾸면 헤더와 합계에 반영된다', () => {
+test('환율을 설정 화면에서 바꾸면 분석·CSV 환산에 반영된다 (정산 화면 금액은 그대로)', () => {
   const L = makeDom(null, {});
   const A = L.w.__AC;
+  A.resetData({ silent: true });
+  A.addEntry({ type: 'income', date: THIS_MONTH + '-02', region: 'PH', currency: 'PHP', amount: 10000, category: '숙박 수입 - 개별' });
   A.showView('settings');
+  const before = L.$('.kpi.income .v').textContent;
   setVal(L.w, L.$('#sRate'), '26');
   fire(L.w, L.$('#rateForm'), 'submit');
   eq(A.getRate(), 26);
-  includes(L.$('#rateChipText').textContent, '26');
+  includes(L.$('#viewReport').textContent, '₱1 = ₩26');
+  eq(L.w.__AC.buildCSV(THIS_MONTH).indexOf('1 PHP = 26 KRW') > 0, true, 'CSV에는 환산 기준이 적힙니다');
+  eq(L.$('.kpi.income .v').textContent, before, '정산 화면의 페소 금액은 환율에 흔들리지 않습니다');
   L.dom.window.close();
 });
 
@@ -1195,6 +1252,73 @@ test('설정 화면에 저장 키와 분리 안내가 보인다', () => {
   L.w.__AC.showView('settings');
   includes(L.$('#viewSettings').textContent, 'oraholic-accounting-v1');
   includes(L.$('#viewSettings').textContent, '예약 앱과 분리');
+  L.dom.window.close();
+});
+
+/* ============================================================
+   11. 페소 중심 화면 (한국 지출은 기록만)
+   ============================================================ */
+console.log('\n[11] 페소 중심 화면');
+
+test('한국 지출 34건은 장부에 그대로 남고 페소 잔액은 그대로다', () => {
+  const L = makeDom(null, {});
+  const A = L.w.__AC;
+  A.resetData({ silent: true });
+  A.setOpening(153914, 0);
+  A.addEntry({ type: 'income', date: THIS_MONTH + '-03', region: 'PH', currency: 'PHP', amount: 2408060, category: '숙박 수입 - 개별' });
+  A.addEntry({ type: 'expense', date: THIS_MONTH + '-04', region: 'PH', currency: 'PHP', amount: 2229433, category: '월세' });
+  for (let i = 0; i < 34; i++) {
+    A.addEntry({ type: 'expense', date: THIS_MONTH + '-' + String((i % 27) + 1).padStart(2, '0'), region: 'KR', currency: 'KRW', amount: 26702, category: '물품 구입' });
+  }
+  const b = A.balance();
+  eq(A.money(b.php, 'PHP'), '₱332,541', '기초 + 수입 − 지출');
+  eq(b.krwOutCount, 34, '한국 지출 34건');
+  eq(b.krwOut, 26702 * 34, '한국 지출 누적');
+  A.showView('ledger');
+  A.setFilter('region', 'KR');
+  A.setFilter('month', 'all');
+  eq(L.$$('#viewLedger .entry').length, 34, '장부에 한국 지출 34건이 남아 있습니다');
+  includes(L.$('#krwExpensePill').textContent, A.money(26702 * 34, 'KRW'), '히어로에는 누적 지출로만 보입니다');
+  L.dom.window.close();
+});
+
+test('장부 행은 그 통화의 금액만 보여 주고 ≈ 환산을 붙이지 않는다', () => {
+  const L = makeDom(null, {});
+  const A = L.w.__AC;
+  A.resetData({ silent: true });
+  A.addEntry({ type: 'expense', date: THIS_MONTH + '-01', region: 'PH', currency: 'PHP', amount: 35000, category: '월세' });
+  A.addEntry({ type: 'expense', date: THIS_MONTH + '-02', region: 'KR', currency: 'KRW', amount: 120000, category: '물품 구입' });
+  A.showView('ledger');
+  const txt = L.$('#viewLedger').textContent;
+  includes(txt, '₱35,000');
+  includes(txt, '₩120,000');
+  notIncludes(txt, '≈', '행마다 원화 환산을 불이지 않습니다');
+  L.dom.window.close();
+});
+
+test('월 지출은 페소 합계와 한국 원화 지출을 따로 보여 준다', () => {
+  const L = makeDom(null, {});
+  const A = L.w.__AC;
+  seedMonth(A, THIS_MONTH);
+  A.showView('dashboard');
+  eq(L.$('.kpi.expense .v').textContent, '₱35,000', '총 지출은 페소');
+  includes(L.$('#kpiExpenseSub').textContent, '🇰🇷 한국 지출 ₩120,000', '한국 지출은 별도 표기');
+  const tbl = L.$('#viewDashboard details.more table');
+  assert(tbl, '항목별 정산표가 있어야 합니다');
+  includes(tbl.textContent, '₱35,000');
+  includes(tbl.textContent, '₩120,000');
+  L.dom.window.close();
+});
+
+test('대시보드에는 환율 환산 문구·통합 잔액이 없다', () => {
+  const L = makeDom(null, {});
+  const A = L.w.__AC;
+  A.sampleData();
+  A.showView('dashboard');
+  const txt = L.$('#viewDashboard').textContent;
+  notIncludes(txt, '환산 기준');
+  notIncludes(txt, '₱1 = ₩');
+  notIncludes(txt, '통합');
   L.dom.window.close();
 });
 

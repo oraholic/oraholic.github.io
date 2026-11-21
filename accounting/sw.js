@@ -1,7 +1,7 @@
 /* 오라홀릭 회계 정산 — service worker
    /accounting/ 하위 경로에서만 동작하도록 상대 경로만 사용합니다.
    예약 앱(/)의 캐시와 섞이지 않도록 캐시 이름을 따로 쓰고, 자기 캐시만 지웁니다. */
-const CACHE = 'oraholic-accounting-v1.0.1';
+const CACHE = 'oraholic-accounting-v1.0.2';
 const PREFIX = 'oraholic-accounting-';
 const ASSETS = [
   './',

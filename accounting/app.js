@@ -3,9 +3,9 @@
 /* ============================================================
    오라홀릭 회계 정산 — app.js
    · 접속 비밀번호 잠금 (예약 앱과 완전히 분리된 저장 키)
-   · 필리핀 현지(₱) / 한국(₩) 이중 통화 · 환율 환산
-   · 현재 보유 잔액 (기초 잔액 + 누적 수입 − 누적 지출)
-   · 월별 정산 · 항목별 비중 · 지역 비교 · 전월 대비 · 연간 추이
+   · 페소(₱) 중심 장부: 보유 잔액·월 정산 모두 페소 기준
+     (한국 지출은 잔액에서 빼지 않고 누적 기록으로만, ₩로 따로 표시)
+   · 월별 정산 · 항목별 비중 · 현지 vs 한국 · 전월 대비 · 연간 추이
    · 고정비 불러오기 · JSON/CSV 백업 · Firebase 동기화(선택)
    ============================================================ */
 
@@ -17,9 +17,9 @@
   const DEFAULT_PIN = '0000';
   const PIN_MIN = 4;
   const PIN_MAX = 12;
-  const APP_VERSION = '1.0.0';
+  const APP_VERSION = '1.0.2';
   const TEST = !!window.__AC_TEST__;
-  const DEFAULT_RATE = 24.5;
+  const DEFAULT_RATE = 21.1;
   const SYNC_PATH = 'oraholic-accounting';
 
   const REGIONS = {
@@ -98,7 +98,13 @@
     return sign + (cur === 'PHP' ? '₱' : '₩') + abs.toLocaleString(cur === 'PHP' ? 'en-US' : 'ko-KR');
   }
   function moneyWon(n) { return money(n, 'KRW'); }
-  function signMoney(n) { return (num(n) < 0 ? '−' : '+') + moneyWon(Math.abs(n)); }
+  /* 통화를 섞지 않고 각 통화 금액만 이어 붙입니다. (예: ₱1,234 · ₩56,789) */
+  function curTotals(b) {
+    const parts = [];
+    if (num(b && b.php)) parts.push(money(b.php, 'PHP'));
+    if (num(b && b.krw)) parts.push(money(b.krw, 'KRW'));
+    return parts.length ? parts.join(' · ') : '<span class="cmute">—</span>';
+  }
   function pct(a, b) { const d = num(b); return d ? (num(a) / d) * 100 : 0; }
   function pctText(a, b, digits) { const p = pct(a, b); return (p < 10 ? p.toFixed(digits == null ? 1 : digits) : Math.round(p)) + '%'; }
   function catMeta(name, type) {
@@ -224,10 +230,10 @@
 
   function entriesForMonth(ym) { return state.entries.filter((e) => monthKey(e.date) === ym); }
 
-  function bucket() { return { php: 0, krw: 0, krwTotal: 0, count: 0 }; }
+  function bucket() { return { php: 0, krw: 0, krwTotal: 0, count: 0, phpCount: 0, krwCount: 0 }; }
   function addTo(b, e) {
     const v = num(e.amount);
-    if (e.currency === 'PHP') b.php += v; else b.krw += v;
+    if (e.currency === 'PHP') { b.php += v; b.phpCount += 1; } else { b.krw += v; b.krwCount += 1; }
     b.krwTotal += entryKRW(e);
     b.count += 1;
   }
@@ -278,11 +284,11 @@
   }
 
   function balance() {
-    let phpIn = 0, phpOut = 0, krwIn = 0, krwOut = 0;
+    let phpIn = 0, phpOut = 0, krwIn = 0, krwOut = 0, krwOutCount = 0;
     state.entries.forEach((e) => {
       const v = num(e.amount);
       if (e.currency === 'PHP') { if (e.type === 'income') phpIn += v; else phpOut += v; }
-      else if (e.type === 'income') krwIn += v; else krwOut += v;
+      else if (e.type === 'income') krwIn += v; else { krwOut += v; krwOutCount += 1; }
     });
     const openPhp = num(state.settings.opening.php);
     const openKrw = num(state.settings.opening.krw);
@@ -290,7 +296,7 @@
     const krw = openKrw + krwIn - krwOut;
     return {
       php: php, krw: krw, totalKRW: krw + php * getRate(),
-      phpIn: phpIn, phpOut: phpOut, krwIn: krwIn, krwOut: krwOut,
+      phpIn: phpIn, phpOut: phpOut, krwIn: krwIn, krwOut: krwOut, krwOutCount: krwOutCount,
       openPhp: openPhp, openKrw: openKrw, rate: getRate()
     };
   }
@@ -375,8 +381,6 @@
   }
 
   function renderHeader() {
-    const r = $('#rateChipText');
-    if (r) r.textContent = '₱1 = ₩' + fmtRate(getRate());
     const badge = $('#syncBadge');
     const txt = $('#syncBadgeText');
     const s = state.settings.sync;
@@ -405,41 +409,43 @@
         '<span class="lab"><b>현재 보유 잔액</b> · 남아 있는 돈</span>' +
         '<button type="button" class="balance-edit" data-action="edit-opening">기초잔액 설정</button>' +
       '</div>' +
-      '<div class="balance-total"><span class="v num">' + moneyWon(b.totalKRW) + '</span><span class="u">전체 통합 · 환산</span></div>' +
-      '<div class="balance-split">' +
-        '<div class="bal-box">' +
-          '<div class="bh">🇵🇭 필리핀 현지</div>' +
-          '<div class="bv num">' + money(b.php, 'PHP') + '</div>' +
-          '<div class="bs">기초 ' + money(b.openPhp, 'PHP') + ' · 수입 ' + money(b.phpIn, 'PHP') + ' − 지출 ' + money(b.phpOut, 'PHP') + '</div>' +
-        '</div>' +
-        '<div class="bal-box">' +
-          '<div class="bh">🇰🇷 한국</div>' +
-          '<div class="bv num">' + money(b.krw, 'KRW') + '</div>' +
-          '<div class="bs">기초 ' + money(b.openKrw, 'KRW') + ' · 수입 ' + money(b.krwIn, 'KRW') + ' − 지출 ' + money(b.krwOut, 'KRW') + '</div>' +
-        '</div>' +
+      '<div class="balance-cur">🇵🇭 필리핀 페소</div>' +
+      '<div class="balance-total"><span class="v num">' + money(b.php, 'PHP') + '</span></div>' +
+      '<div class="balance-calc">기초 ' + money(b.openPhp, 'PHP') + ' + 수입 ' + money(b.phpIn, 'PHP') + ' − 지출 ' + money(b.phpOut, 'PHP') + '</div>' +
+      '<div class="balance-pill" id="krwExpensePill">' +
+        '<span class="bp-ico" aria-hidden="true">🇰🇷</span>' +
+        '<span class="bp-main">한국 지출 기록: 누적 <b class="num">' + money(b.krwOut, 'KRW') + '</b></span>' +
+        '<span class="bp-n">' + b.krwOutCount + '건</span>' +
       '</div>' +
-      '<div class="bal-foot">모든 달의 내역(' + ecount + '건)과 기초 잔액으로 자동 계산됩니다 · 환산 기준 <b>₱1 = ₩' + fmtRate(getRate()) + '</b></div>' +
+      '<div class="bal-foot">모든 달의 내역(' + ecount + '건)과 기초 잔액으로 자동 계산됩니다. 한국 지출은 잔액에서 빼지 않고 기록만 모읍니다.</div>' +
       '</div>';
   }
 
   function kpiHTML(sum) {
-    const phPart = sum.ph.krwTotal;
-    const krPart = sum.kr.krwTotal;
+    const phpNet = num(sum.income.php) - num(sum.expense.php);
+    const margin = sum.income.php ? (phpNet / sum.income.php) * 100 : 0;
+    const rm = Math.round(margin);
+    const incSub = (sum.income.php || sum.income.krw)
+      ? [(sum.income.php ? '🇵🇭 페소 수입' : ''), (sum.income.krw ? '🇰🇷 ' + money(sum.income.krw, 'KRW') : '')].filter(Boolean).join(' · ')
+      : '이번 달 수입 없음';
+    const expSub = sum.expense.krw
+      ? '🇰🇷 한국 지출 ' + money(sum.expense.krw, 'KRW')
+      : (sum.expense.php ? '🇵🇭 페소 지출' : '이번 달 지출 없음');
     return '<div class="kpis">' +
       '<div class="kpi income">' +
         '<div class="k">총 수입</div>' +
-        '<div class="v num">' + moneyWon(sum.income.krwTotal) + '</div>' +
-        '<div class="s">' + (sum.income.php ? '₱' + fmtNum(sum.income.php) : '') + (sum.income.php && sum.income.krw ? ' · ' : '') + (sum.income.krw ? '₩' + fmtNum(sum.income.krw) : '') + (sum.income.krwTotal ? '' : '이번 달 수입 없음') + '</div>' +
+        '<div class="v num">' + money(sum.income.php, 'PHP') + '</div>' +
+        '<div class="s">' + incSub + '</div>' +
       '</div>' +
       '<div class="kpi expense">' +
         '<div class="k">총 지출</div>' +
-        '<div class="v num">' + moneyWon(sum.expense.krwTotal) + '</div>' +
-        '<div class="s">🇵🇭 ' + moneyWon(phPart) + ' · 🇰🇷 ' + moneyWon(krPart) + '</div>' +
+        '<div class="v num">' + money(sum.expense.php, 'PHP') + '</div>' +
+        '<div class="s" id="kpiExpenseSub">' + expSub + '</div>' +
       '</div>' +
       '<div class="kpi net">' +
-        '<div class="k">월 순수익</div>' +
-        '<div class="v num ' + (sum.net < 0 ? 'neg' : 'pos') + '">' + (sum.net < 0 ? '−' : '') + moneyWon(Math.abs(sum.net)) + '</div>' +
-        '<div class="s">' + (sum.income.krwTotal ? '수입의 ' + Math.round(sum.margin) + '%' : '내역을 추가해 보세요') + '</div>' +
+        '<div class="k">월 순수익 <span class="tiny" style="font-weight:600">페소 기준</span></div>' +
+        '<div class="v num ' + (phpNet < 0 ? 'neg' : 'pos') + '">' + (phpNet < 0 ? '−' : '') + money(Math.abs(phpNet), 'PHP') + '</div>' +
+        '<div class="s">' + (sum.income.php ? '수입의 ' + (rm < 0 ? '−' : '') + Math.abs(rm) + '%' : '내역을 추가해 보세요') + '</div>' +
       '</div>' +
       '</div>';
   }
@@ -465,59 +471,66 @@
   }
 
   function catChartHTML(sum) {
-    const list = sum.catsExpense;
+    const list = sum.catsExpense.slice().sort((a, b) => (b.php - a.php) || (b.krw - a.krw));
     if (!list.length) {
       return '<div class="card"><div class="card-head"><div><h2>항목별 지출 비중</h2><p>이번 달 지출 내역이 없습니다</p></div></div>' +
         '<div class="empty"><span class="big">🧾</span>아래 <b>＋ 내역 추가</b>로 첫 지출을 적어 보세요.</div></div>';
     }
-    const max = list[0].krwTotal || 1;
-    const rows = list.map((c) => {
+    const phpTotal = sum.expense.php;
+    const max = list.reduce((m, c) => Math.max(m, c.php), 0) || 1;
+    const rows = list.filter((c) => c.php > 0).map((c) => {
       const meta = catMeta(c.name, 'expense');
       return '<div class="bar-row">' +
         '<span class="bl"><span>' + meta.emo + '</span><span class="name">' + esc(c.name) + '</span></span>' +
-        '<span class="bv num">' + moneyWon(c.krwTotal) + '<em>' + pctText(c.krwTotal, sum.expense.krwTotal, 1) + '</em></span>' +
-        '<span class="bar-track"><span class="bar-fill" style="width:' + Math.max(3, (c.krwTotal / max) * 100).toFixed(1) + '%"></span></span>' +
+        '<span class="bv num">' + money(c.php, 'PHP') + '<em>' + pctText(c.php, phpTotal, 1) + '</em></span>' +
+        '<span class="bar-track"><span class="bar-fill" style="width:' + Math.max(3, (c.php / max) * 100).toFixed(1) + '%"></span></span>' +
         '</div>';
     }).join('');
 
     const tableRows = list.map((c) => '<tr><td class="nmcell">' + catMeta(c.name, 'expense').emo + ' ' + esc(c.name) + '</td>' +
-      '<td>' + curPair(c.php, c.krw) + '</td>' +
-      '<td>' + moneyWon(c.krwTotal) + '</td>' +
-      '<td class="c-share">' + pctText(c.krwTotal, sum.expense.krwTotal, 1) + '</td></tr>').join('');
+      '<td>' + (c.php ? money(c.php, 'PHP') : '<span class="cmute">—</span>') + '</td>' +
+      '<td>' + (c.krw ? money(c.krw, 'KRW') : '<span class="cmute">—</span>') + '</td>' +
+      '<td class="c-share">' + (c.php ? pctText(c.php, phpTotal, 1) : '<span class="cmute">—</span>') + '</td></tr>').join('');
+
+    const krwNote = sum.expense.krw
+      ? '<div class="tiny muted" style="margin-top:10px">🇰🇷 한국 지출은 통화가 달라 섞지 않고 따로 셉니다 — 이번 달 <b>' + money(sum.expense.krw, 'KRW') + '</b> (' + sum.expense.krwCount + '건)</div>'
+      : '';
 
     return '<div class="card">' +
-      '<div class="card-head"><div><h2>항목별 지출 비중</h2><p>' + monthLabel(ui.month) + ' · ' + list.length + '개 항목 · 합계 ' + moneyWon(sum.expense.krwTotal) + '</p></div>' +
+      '<div class="card-head"><div><h2>항목별 지출 비중</h2><p>' + monthLabel(ui.month) + ' · ' + list.length + '개 항목 · 페소 지출 합계 ' + money(phpTotal, 'PHP') + '</p></div>' +
       '<button type="button" class="btn sm ghost" data-action="view" data-view="report">표로 보기</button></div>' +
-      '<div class="chart">' + rows + '</div>' +
+      (rows ? '<div class="chart">' + rows + '</div>' : '<div class="empty small">이번 달 페소 지출은 없습니다.</div>') +
       '<details class="more"><summary>월별 정산표 자세히</summary><div class="tbl-wrap"><table class="tbl">' +
-        '<thead><tr><th>항목</th><th>필리핀 / 한국</th><th>합계(₩)</th><th class="c-share">비중</th></tr></thead>' +
+        '<thead><tr><th>항목</th><th>🇵🇭 페소</th><th>🇰🇷 원화</th><th class="c-share">비중(₱)</th></tr></thead>' +
         '<tbody>' + tableRows + '</tbody>' +
-        '<tfoot><tr><td>지출 합계</td><td>' + curPair(sum.expense.php, sum.expense.krw) + '</td><td>' + moneyWon(sum.expense.krwTotal) + '</td><td class="c-share">100%</td></tr></tfoot>' +
+        '<tfoot><tr><td>지출 합계</td><td>' + money(sum.expense.php, 'PHP') + '</td><td>' + (sum.expense.krw ? money(sum.expense.krw, 'KRW') : '<span class="cmute">—</span>') + '</td><td class="c-share">100%</td></tr></tfoot>' +
       '</table></div></details>' +
+      krwNote +
       '</div>';
   }
 
   function regionHTML(sum) {
-    if (!sum.expense.krwTotal) {
+    if (!sum.expense.count) {
       return '<div class="card"><div class="card-head"><div><h2>🇵🇭 현지 vs 🇰🇷 한국 지출</h2><p>이번 달 지출이 없습니다</p></div></div>' +
         '<div class="tiny muted">지출을 적을 때 <b>지역</b>을 고르면 현지 지출과 한국 지출이 자동으로 나뉩니다.</div></div>';
     }
-    const phPct = pct(sum.ph.krwTotal, sum.expense.krwTotal);
-    const krPct = 100 - phPct;
+    const ph = sum.ph;
+    const kr = sum.kr;
     return '<div class="card">' +
-      '<div class="card-head"><div><h2>🇵🇭 현지 vs 🇰🇷 한국 지출</h2><p>환산 ₩ 기준 비교 · ' + monthLabel(ui.month) + '</p></div></div>' +
+      '<div class="card-head"><div><h2>🇵🇭 현지 vs 🇰🇷 한국 지출</h2><p>' + monthLabel(ui.month) + ' · 통화별로 그대로 표시</p></div></div>' +
       '<div class="region-grid">' +
-        '<div class="region-box ph"><div class="rh">🇵🇭 필리핀 현지 <span class="pct">' + Math.round(phPct) + '%</span></div>' +
-          '<div class="rv num">' + moneyWon(sum.ph.krwTotal) + '</div>' +
-          '<div class="rs">' + (sum.ph.php ? '₱' + fmtNum(sum.ph.php) : '') + (sum.ph.php && sum.ph.krw ? ' + ' : '') + (sum.ph.krw ? '₩' + fmtNum(sum.ph.krw) : '') + ' · ' + sum.ph.count + '건</div></div>' +
-        '<div class="region-box kr"><div class="rh">🇰🇷 한국 <span class="pct">' + Math.round(krPct) + '%</span></div>' +
-          '<div class="rv num">' + moneyWon(sum.kr.krwTotal) + '</div>' +
-          '<div class="rs">' + (sum.kr.php ? '₱' + fmtNum(sum.kr.php) : '') + (sum.kr.php && sum.kr.krw ? ' + ' : '') + (sum.kr.krw ? '₩' + fmtNum(sum.kr.krw) : '') + ' · ' + sum.kr.count + '건</div></div>' +
+        '<div class="region-box ph"><div class="rh">🇵🇭 필리핀 현지</div>' +
+          '<div class="rv num">' + (ph.php ? money(ph.php, 'PHP') : '<span class="cmute">—</span>') + '</div>' +
+          '<div class="rs">' + ph.count + '건' + (ph.krw ? ' · ₩' + fmtNum(ph.krw) : '') + '</div></div>' +
+        '<div class="region-box kr"><div class="rh">🇰🇷 한국</div>' +
+          '<div class="rv num">' + (kr.krw ? money(kr.krw, 'KRW') : '<span class="cmute">—</span>') + '</div>' +
+          '<div class="rs">' + kr.count + '건' + (kr.php ? ' · ₱' + fmtNum(kr.php) : '') + '</div></div>' +
       '</div>' +
-      '<div class="compare-split"><span class="a" style="width:' + phPct.toFixed(1) + '%"></span><span class="b" style="width:' + krPct.toFixed(1) + '%"></span></div>' +
-      '<div class="legend"><span class="li-ph">🇵🇭 현지 지출 ' + moneyWon(sum.ph.krwTotal) + '</span><span class="li-kr">🇰🇷 한국 지출 ' + moneyWon(sum.kr.krwTotal) + '</span></div>' +
+      '<div class="tiny muted" style="margin-top:9px">환산해서 억지로 맞추지 않고 통화별로 따로 셉니다. 페소 지출 비중은 항목별 지출 카드에서 볼 수 있습니다.</div>' +
       '</div>';
   }
+
+  function phpNet(sum) { return num(sum.income.php) - num(sum.expense.php); }
 
   function momHTML(sum, prev, ym) {
     const diff = (a, b) => num(a) - num(b);
@@ -527,17 +540,22 @@
       const good = d === 0 ? 'flat' : (d > 0) === !!goodWhenUp ? 'good' : 'bad';
       const arrow = d > 0 ? '▲' : d < 0 ? '▼' : '–';
       return '<div class="mom-item"><div class="mk">' + label + '</div>' +
-        '<div class="mv num">' + signMoney(d) + '</div>' +
+        '<div class="mv num">' + (d < 0 ? '−' : '+') + money(Math.abs(d), 'PHP') + '</div>' +
         '<div class="md ' + good + '">' + arrow + ' ' + (base ? Math.abs(rate).toFixed(rate >= 10 || rate === 0 ? 0 : 1) + '%' : '비교 없음') + '</div></div>';
     };
+    const krCur = sum.expense.krw;
+    const krPrev = prev.expense.krw;
     return '<div class="card">' +
-      '<div class="card-head"><div><h2>전월 대비</h2><p>' + monthLabel(addMonths(ym, -1)) + ' → ' + monthLabel(ym) + '</p></div></div>' +
+      '<div class="card-head"><div><h2>전월 대비</h2><p>' + monthLabel(addMonths(ym, -1)) + ' → ' + monthLabel(ym) + ' · 페소 기준</p></div></div>' +
       '<div class="mom">' +
-        mk('수입', sum.income.krwTotal, prev.income.krwTotal, true) +
-        mk('지출', sum.expense.krwTotal, prev.expense.krwTotal, false) +
-        mk('순수익', sum.net, prev.net, true) +
+        mk('수입', sum.income.php, prev.income.php, true) +
+        mk('지출', sum.expense.php, prev.expense.php, false) +
+        mk('순수익', phpNet(sum), phpNet(prev), true) +
       '</div>' +
-      '<div class="tiny muted" style="margin-top:9px">늘어난 수입·순수익과 줄어든 지출은 초록, 반대는 빨강입니다. 금액은 모두 ₩ 환산 기준입니다.</div>' +
+      ((krCur || krPrev)
+        ? '<div class="divider"></div><div class="kv"><span class="k">🇰🇷 한국 지출(₩)</span><span class="v num">' + money(krCur, 'KRW') + ' <span class="tiny muted" style="font-weight:600">지난달 ' + money(krPrev, 'KRW') + '</span></span></div>'
+        : '') +
+      '<div class="tiny muted" style="margin-top:9px">페소 금액끼리 비교합니다. 늘어난 수입·순수익과 줄어든 지출은 초록, 반대는 빨강입니다. 한국 지출은 통화가 달라 따로 표시합니다.</div>' +
       '</div>';
   }
 
@@ -546,8 +564,6 @@
     const meta = catMeta(e.category, e.type);
     const reg = REGIONS[e.region] || REGIONS.PH;
     const native = money(e.amount, e.currency);
-    const conv = e.currency === 'PHP' ? moneyWon(entryKRW(e)) : money(entryPHP(e), 'PHP');
-    const showConv = !(opts && opts.noConvert);
     return '<button type="button" class="entry ' + (isExp ? 'exp' : 'inc') + '" data-action="edit-entry" data-id="' + esc(e.id) + '">' +
       '<span class="ico" aria-hidden="true">' + meta.emo + '</span>' +
       '<span class="main-line">' +
@@ -558,7 +574,7 @@
         '</span>' +
         '<span class="meta">' + (e.memo ? esc(e.memo) : houseLabel(e.house)) + '</span>' +
       '</span>' +
-      '<span class="amt num">' + (isExp ? '−' : '+') + native + (showConv ? '<small>≈ ' + conv + '</small>' : '') + '</span>' +
+      '<span class="amt num">' + (isExp ? '−' : '+') + native + '</span>' +
       '</button>';
   }
 
@@ -586,8 +602,9 @@
       monthNavHTML(ym) +
       kpiHTML(sum) +
       fixedHTML(ym, fixedCandidates(ym)) +
-      '<div class="grid-2">' + catChartHTML(sum) + regionHTML(sum) + '</div>' +
-      momHTML(sum, prev, ym) +
+      '<div class="grid-2">' + catChartHTML(sum) +
+        '<div class="stack">' + regionHTML(sum) + momHTML(sum, prev, ym) + '</div>' +
+      '</div>' +
       recentHTML(list);
   }
 
@@ -610,6 +627,19 @@
     return state.entries.filter((e) => entryMatches(e, f));
   }
 
+  /* 하루 합계: 통화를 섞지 않고 페소·원화를 따로 적습니다. */
+  function daySumText(items) {
+    let php = 0, krw = 0;
+    items.forEach((e) => {
+      const v = e.type === 'income' ? num(e.amount) : -num(e.amount);
+      if (e.currency === 'PHP') php += v; else krw += v;
+    });
+    const parts = [];
+    if (php) parts.push((php < 0 ? '−' : '+') + money(Math.abs(php), 'PHP'));
+    if (krw) parts.push((krw < 0 ? '−' : '+') + money(Math.abs(krw), 'KRW'));
+    return parts.length ? parts.join(' ') : '—';
+  }
+
   function renderLedger() {
     const el = $('#viewLedger');
     if (!el) return;
@@ -625,8 +655,7 @@
 
     const body = list.length ? Object.keys(groups).map((d) => {
       const items = groups[d];
-      const dsum = items.reduce((a, e) => a + (e.type === 'income' ? entryKRW(e) : -entryKRW(e)), 0);
-      return '<div class="day-head"><span>' + dayLabel(d) + '</span><span class="dsum num">' + signMoney(dsum) + '</span></div>' +
+      return '<div class="day-head"><span>' + dayLabel(d) + '</span><span class="dsum num">' + daySumText(items) + '</span></div>' +
         '<div class="list">' + items.map((e) => entryRowHTML(e)).join('') + '</div>';
     }).join('') : '<div class="card"><div class="empty"><span class="big">🔍</span>조건에 맞는 내역이 없습니다.<br>필터를 풀거나 ＋ 버튼으로 새 내역을 추가하세요.</div></div>';
 
@@ -654,7 +683,7 @@
         '<input class="search" id="fSearch" type="search" placeholder="메모 · 카테고리 검색" value="' + esc(f.q) + '">' +
       '</div>' +
       '<div class="divider"></div>' +
-      '<div class="kv"><span class="k">' + list.length + '건</span><span class="v num">수입 ' + moneyWon(sum.income.krwTotal) + ' · 지출 ' + moneyWon(sum.expense.krwTotal) + '</span></div>' +
+      '<div class="kv"><span class="k">' + list.length + '건</span><span class="v num">수입 ' + curTotals(sum.income) + ' · 지출 ' + curTotals(sum.expense) + '</span></div>' +
       '</div>' +
       body;
   }
@@ -758,25 +787,23 @@
     const s = state.settings;
     const b = balance();
     el.innerHTML =
-      '<div class="card"><div class="card-head"><div><h2>💰 기초(시작) 잔액</h2><p>장부를 시작할 때 실제로 가지고 있던 돈</p></div></div>' +
+      '<div class="card"><div class="card-head"><div><h2>💰 기초(시작) 잔액</h2><p>장부를 시작할 때 실제로 가지고 있던 페소</p></div></div>' +
         '<form id="openingForm" novalidate>' +
-          '<div class="field-2">' +
-            '<div class="field"><label for="sOpenPhp">필리핀 현지 (₱)</label><input type="text" id="sOpenPhp" inputmode="decimal" value="' + (s.opening.php || 0) + '"></div>' +
-            '<div class="field"><label for="sOpenKrw">한국 (₩)</label><input type="text" id="sOpenKrw" inputmode="decimal" value="' + (s.opening.krw || 0) + '"></div>' +
-          '</div>' +
-          '<div class="set-note">지금 계산된 보유 잔액 — 🇵🇭 <b>' + money(b.php, 'PHP') + '</b> · 🇰🇷 <b>' + money(b.krw, 'KRW') + '</b> · 통합 <b>' + moneyWon(b.totalKRW) + '</b></div>' +
+          '<div class="field"><label for="sOpenPhp">필리핀 현지 기초 잔액 (₱)</label><input type="text" id="sOpenPhp" inputmode="decimal" value="' + (s.opening.php || 0) + '"></div>' +
+          '<div class="set-note">지금 페소 잔액 — <b>' + money(b.php, 'PHP') + '</b> (기초 ' + money(b.openPhp, 'PHP') + ' + 수입 ' + money(b.phpIn, 'PHP') + ' − 지출 ' + money(b.phpOut, 'PHP') + ')' +
+            '<br>한국 지출은 잔액에서 빼지 않고 누적 기록만 합니다 — <b>' + money(b.krwOut, 'KRW') + '</b></div>' +
           '<div class="btn-row" style="margin-top:10px"><button type="submit" class="btn primary sm">기초 잔액 저장</button></div>' +
         '</form>' +
       '</div>' +
 
-      '<div class="card"><div class="card-head"><div><h2>💱 환율</h2><p>페소를 원으로 바꾸는 기준</p></div></div>' +
+      '<div class="card"><div class="card-head"><div><h2>💱 환율</h2><p>엑셀(CSV)·분석 탭 환산 참고용</p></div></div>' +
         '<form id="rateForm" novalidate><div class="set-row" style="gap:10px">' +
           '<span class="lbl">₱1 =</span>' +
           '<input class="search" id="sRate" inputmode="decimal" value="' + fmtRate(s.rate) + '" style="max-width:120px;text-align:right">' +
           '<span class="lbl">₩</span>' +
           '<button type="submit" class="btn primary sm">저장</button>' +
         '</div>' +
-        '<div class="set-note" style="margin-top:8px">예: 1페소가 24.5원이면 <b>24.5</b>. 바꾸면 모든 월별 합계·보유 잔액이 새 환율로 다시 계산됩니다.</div>' +
+        '<div class="set-note" style="margin-top:8px">예: 1페소가 21.1원이면 <b>21.1</b>. 정산 화면은 페소 기준으로 보여 주고, 이 환율은 CSV와 분석 탭의 원화 환산에만 씁니다.</div>' +
         '</form>' +
       '</div>' +
 
@@ -948,12 +975,10 @@
     const html = '<form class="sheet" id="openingSheetForm" novalidate>' +
       '<div class="sheet-grip"></div>' +
       '<div class="sheet-head"><h2>기초 잔액 설정</h2><button type="button" class="sheet-close" data-action="close-sheet" aria-label="닫기">✕</button></div>' +
-      '<p class="tiny muted" style="margin-bottom:12px">장부를 시작한 날 실제로 가지고 있던 돈을 적으면, 그 뒤로는 수입·지출이 더해지고 빠져서 <b>현재 보유 잔액</b>이 자동으로 맞춰집니다.</p>' +
-      '<div class="field-2">' +
-        '<div class="field"><label for="bOpenPhp">필리핀 현지 (₱)</label><input type="text" id="bOpenPhp" inputmode="decimal" value="' + (state.settings.opening.php || 0) + '"></div>' +
-        '<div class="field"><label for="bOpenKrw">한국 (₩)</label><input type="text" id="bOpenKrw" inputmode="decimal" value="' + (state.settings.opening.krw || 0) + '"></div>' +
-      '</div>' +
-      '<div class="notice">지금 장부 기준 누적 — 🇵🇭 수입 ' + money(b.phpIn, 'PHP') + ' − 지출 ' + money(b.phpOut, 'PHP') + ' · 🇰🇷 수입 ' + money(b.krwIn, 'KRW') + ' − 지출 ' + money(b.krwOut, 'KRW') + '<br>환산 기준 ₱1 = ₩' + fmtRate(getRate()) + '</div>' +
+      '<p class="tiny muted" style="margin-bottom:12px">장부를 시작한 날 실제로 가지고 있던 <b>페소</b>를 적으면, 그 뒤로는 페소 수입·지출이 더해지고 빠져서 <b>현재 보유 잔액</b>이 자동으로 맞춰집니다.</p>' +
+      '<div class="field"><label for="bOpenPhp">필리핀 현지 기초 잔액 (₱)</label><input type="text" id="bOpenPhp" inputmode="decimal" value="' + (state.settings.opening.php || 0) + '"></div>' +
+      '<div class="notice">지금 장부 기준 — 페소 수입 ' + money(b.phpIn, 'PHP') + ' − 지출 ' + money(b.phpOut, 'PHP') + ' · 기초 ' + money(b.openPhp, 'PHP') + ' → <b>' + money(b.php, 'PHP') + '</b>' +
+        '<br>한국 지출은 잔액에 넣지 않고 기록만 모아 둡니다 — 누적 <b>' + money(b.krwOut, 'KRW') + '</b> (' + b.krwOutCount + '건)</div>' +
       '<div class="sheet-foot" style="margin-top:14px"><button type="button" class="btn" data-action="close-sheet">취소</button><button type="submit" class="btn primary">저장</button></div>' +
       '</form>';
     sheetShell(html);
@@ -1012,7 +1037,6 @@
       const el = document.getElementById(id);
       if (el) el.innerHTML = '';
     });
-    const rc = $('#rateChipText'); if (rc) rc.textContent = '₱1 = ₩' + fmtRate(getRate());
   }
 
   function setLockError(msg, ok) {
@@ -1158,7 +1182,7 @@
     const push = (arr) => lines.push(arr.map(csvCell).join(','));
     push(['오라홀릭 회계 정산 — ' + monthLabel(month)]);
     push(['환율', '1 PHP = ' + fmtRate(getRate()) + ' KRW']);
-    push(['기초 잔액', 'PHP ' + fmtNum(state.settings.opening.php), 'KRW ' + fmtNum(state.settings.opening.krw)]);
+    push(['기초 잔액', 'PHP ' + fmtNum(state.settings.opening.php)]);
     push([]);
     push(['날짜', '구분', '지역', '통화', '금액', '원화환산', '항목', '하우스', '고정지출', '메모']);
     list.forEach((e) => {
@@ -1180,9 +1204,9 @@
     push(['합계', '지출', '', '', Math.round(sum.expense.php), Math.round(sum.expense.krwTotal), 'PHP ' + Math.round(sum.expense.php) + ' / KRW ' + Math.round(sum.expense.krw)]);
     push(['합계', '현지 지출', '🇵🇭 필리핀', '', Math.round(sum.ph.php), Math.round(sum.ph.krwTotal)]);
     push(['합계', '한국 지출', '🇰🇷 한국', '', Math.round(sum.kr.php), Math.round(sum.kr.krwTotal)]);
-    push(['합계', '순수익', '', '', '', Math.round(sum.net), '수입 − 지출']);
+    push(['합계', '순수익 (₱)', '', '', Math.round(sum.income.php - sum.expense.php), Math.round(sum.net), '페소 수입 − 페소 지출 (오른쪽은 원화환산)']);
     push([]);
-    push(['현재 보유 잔액', '필리핀 (₱) ' + Math.round(b.php), '한국 (₩) ' + Math.round(b.krw), '통합 (₩) ' + Math.round(b.totalKRW)]);
+    push(['현재 보유 잔액', '필리핀 (₱) ' + Math.round(b.php), '한국 지출 누적 (₩) ' + Math.round(b.krwOut)]);
     push(['건수', list.length]);
     return '\uFEFF' + lines.join(EOL) + EOL;
   }
@@ -1437,7 +1461,8 @@
     if (f.id === 'openingForm' || f.id === 'openingSheetForm') {
       const php = $('#bOpenPhp') || $('#sOpenPhp');
       const krw = $('#bOpenKrw') || $('#sOpenKrw');
-      setOpening(php ? php.value : 0, krw ? krw.value : 0);
+      /* 한국 기초 잔액 칸은 없앴지만, 예전에 저장한 값을 지우지 않고 그대로 둡니다. */
+      setOpening(php ? php.value : 0, krw ? krw.value : state.settings.opening.krw);
       if ($('#bOpenPhp')) closeSheet();
       toast('기초 잔액을 저장했습니다.', 'ok');
       return;

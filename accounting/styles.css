@@ -160,7 +160,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .brand-text p { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
 .top-actions { display: flex; align-items: center; gap: 6px; }
 
-.rate-chip, .sync-badge, .lock-btn, .app-switch {
+.sync-badge, .lock-btn, .app-switch {
   border: 1px solid var(--line-2);
   background: var(--card);
   color: var(--ink-2);
@@ -188,7 +188,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .app-switch .as-ico { font-size: 12.5px; line-height: 1; }
 .app-switch:hover { background: #dceaf7; border-color: #b3cfe9; }
 .app-switch:active { transform: scale(.96); }
-.rate-chip:hover, .sync-badge:hover, .lock-btn:hover { background: var(--mint); border-color: var(--sage); }
+.sync-badge:hover, .lock-btn:hover { background: var(--mint); border-color: var(--sage); }
 .sync-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted-2); display: block; }
 .sync-badge.on { color: var(--green); border-color: var(--sage); background: var(--mint); }
 .sync-badge.on .dot { background: var(--green-2); box-shadow: 0 0 0 3px rgba(46, 125, 91, .16); }
@@ -196,8 +196,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .sync-badge.err .dot { background: var(--bad); }
 .lock-btn { padding: 7px 11px; font-size: 13px; }
 @media (max-width: 520px) {
-  /* 헤더 한 줄 유지: 로고·간격·글자를 조금 줄여 네 가지 버튼이 한 줄에 들어가게 합니다.
-     폭이 아주 좁은 기기(≤379px)에서는 환율 칩을 숨깁니다(정산·장부 화면에 환율이 계속 보입니다). */
+  /* 헤더 한 줄 유지: 로고·간격·글자를 조금 줄여 버튼이 한 줄에 들어가게 합니다. */
   .topbar { gap: 6px; padding: 12px 10px 10px; }
   .top-actions { gap: 3px; }
   .brand { gap: 6px; overflow: hidden; }
@@ -206,7 +205,6 @@ h1, h2, h3, h4, p { margin: 0; }
   .brand-text h1 { font-size: 15px; overflow: hidden; text-overflow: ellipsis; }
   .brand-text p { display: none; }
   .app-switch { padding: 5px 7px; font-size: 10.5px; }
-  .rate-chip { padding: 6px 8px; font-size: 10.5px; }
   .lock-btn { padding: 7px 8px; font-size: 12.5px; }
 }
 @media (max-width: 440px) {
@@ -214,7 +212,6 @@ h1, h2, h3, h4, p { margin: 0; }
   .sync-badge { padding: 8px 9px; }
 }
 @media (max-width: 379px) {
-  .rate-chip { display: none; }
   .app-switch { padding: 5px 7px; font-size: 10.5px; gap: 3px; }
   .brand-text h1 { font-size: 14px; }
 }
@@ -261,6 +258,7 @@ h1, h2, h3, h4, p { margin: 0; }
   padding: 16px;
 }
 .card.tight { padding: 14px; }
+.stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .card-head h2 { font-size: 14.5px; font-weight: 800; letter-spacing: -.01em; }
 .card-head p { font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -321,24 +319,39 @@ h1, h2, h3, h4, p { margin: 0; }
   white-space: nowrap;
 }
 .balance-edit:hover { background: rgba(255, 255, 255, .22); }
-.balance-total { margin-top: 8px; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
-.balance-total .v { font-size: 30px; font-weight: 800; letter-spacing: -.025em; line-height: 1.15; }
-.balance-total .u { font-size: 12.5px; color: #cfe9db; font-weight: 600; }
-.balance-split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
-.bal-box {
+.balance-total { margin-top: 2px; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.balance-total .v { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1.12; }
+.balance-cur { margin-top: 10px; font-size: 12px; font-weight: 700; color: #d5ecdf; letter-spacing: .01em; }
+.balance-calc { margin-top: 7px; font-size: 11.5px; color: #c9e4d6; line-height: 1.6; font-variant-numeric: tabular-nums; }
+.balance-pill {
+  margin-top: 13px;
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center; gap: 7px;
   background: rgba(255, 255, 255, .1);
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 14px;
-  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #e4f3ea;
+  line-height: 1.4;
 }
-.bal-box .bh { font-size: 11.5px; color: #d9eee2; font-weight: 700; letter-spacing: .01em; }
-.bal-box .bv { font-size: 19px; font-weight: 800; letter-spacing: -.02em; margin-top: 2px; }
-.bal-box .bs { font-size: 10.5px; color: #c3dfd1; margin-top: 2px; }
-.bal-foot { margin-top: 12px; font-size: 10.8px; color: #c9e4d6; line-height: 1.55; }
+.balance-pill .bp-main { min-width: 0; }
+.balance-pill .bp-main b { color: #fff; font-weight: 800; }
+.balance-pill .bp-n {
+  margin-left: auto; flex: none;
+  font-size: 10.5px; font-weight: 700;
+  color: #d5ecdf;
+  background: rgba(255, 255, 255, .14);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.bal-foot { margin-top: 11px; font-size: 10.8px; color: #c9e4d6; line-height: 1.55; }
 .bal-foot b { color: #fff; }
 
 /* ---------- KPI ---------- */
-.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+/* 페소 금액은 자리수가 많아 모바일에서는 수입·지출을 2열로, 순수익은 한 줄 전체로 보여 줍니다. */
+.kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .kpi {
   background: var(--card);
   border: 1px solid var(--line);
@@ -347,14 +360,27 @@ h1, h2, h3, h4, p { margin: 0; }
   padding: 13px 13px 12px;
   min-width: 0;
 }
-.kpi .k { font-size: 11.5px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 4px; }
-.kpi .v { font-size: 20px; font-weight: 800; letter-spacing: -.02em; margin-top: 4px; white-space: nowrap; }
+.kpi .k { font-size: 11.5px; font-weight: 700; color: var(--muted); display: flex; align-items: baseline; gap: 4px; }
+.kpi .v { font-size: 20px; font-weight: 800; letter-spacing: -.025em; margin-top: 4px; white-space: nowrap; }
 .kpi .s { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
 .kpi.income .v { color: var(--green); }
 .kpi.expense .v { color: var(--bad); }
 .kpi.net .v.pos { color: var(--green); }
 .kpi.net .v.neg { color: var(--bad); }
-@media (max-width: 380px) { .kpi .v { font-size: 17px; } }
+.kpi.net {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 10px;
+  padding-top: 12px; padding-bottom: 12px;
+}
+.kpi.net .k { grid-column: 1; }
+.kpi.net .v { grid-column: 2; text-align: right; margin-top: 0; font-size: 22px; }
+.kpi.net .s { grid-column: 1 / -1; margin-top: 4px; }
+@media (min-width: 720px) {
+  .kpis { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .kpi.net { grid-column: auto; display: block; }
+  .kpi.net .v { text-align: left; margin-top: 4px; font-size: 23px; }
+  .kpi .v { font-size: 22px; }
+}
 
 /* ---------- 막대 ---------- */
 .chart { display: flex; flex-direction: column; gap: 10px; }
@@ -515,6 +541,7 @@ h1, h2, h3, h4, p { margin: 0; }
   justify-content: center;
   gap: 6px;
   font-family: inherit;
+  white-space: nowrap;
 }
 .btn:active { transform: translateY(1px); }
 .btn:hover { background: var(--mint); border-color: var(--sage); }
@@ -674,8 +701,7 @@ h1, h2, h3, h4, p { margin: 0; }
   .topbar { padding: 14px 22px; }
   .tabs { padding: 8px 20px 0; top: 67px; }
   .kpis { gap: 12px; }
-  .kpi .v { font-size: 23px; }
-  .balance-total .v { font-size: 36px; }
+  .balance-total .v { font-size: 40px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
   .region-grid { gap: 12px; }
   .cat-grid { grid-template-columns: repeat(3, 1fr); }
@@ -765,6 +791,7 @@ details.more[open] > summary::after { content: ' ▴'; }
 .cp span:first-child { color: var(--ph); font-weight: 700; }
 .cp span:last-child { color: var(--kr); font-weight: 700; }
 .cp .cmute { color: var(--muted-2); font-weight: 600; }
+.cmute { color: var(--muted-2); font-weight: 600; }
 td .cp, tfoot td .cp { align-items: flex-end; }
 
 /* 좁은 화면에서는 비중 열을 숨겨 정산표가 잘리지 않게 합니다 */

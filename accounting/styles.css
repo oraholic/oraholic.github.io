@@ -52,6 +52,8 @@ html, body {
   text-rendering: optimizeLegibility;
   font-size: 16px;
   line-height: 1.5;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 body { min-height: 100vh; }
